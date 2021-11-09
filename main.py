@@ -34,6 +34,12 @@ if os.path.isfile('order.json'):
 else:
     order = {}
 
+# memory store for all orders for a specific coin
+if os.path.isfile('session.json'):
+    session = load_order('session.json')
+else:
+    session = {}    
+
 if os.path.isfile('new_listing.json'):
     announcement_coin = load_order('new_listing.json')
 else:
@@ -55,7 +61,7 @@ global new_listings
 
 # load necessary files
 if os.path.isfile('newly_listed.json'):
-    newly_listed = get_new_listings('newly_listed.json')
+    newly_listed = read_newly_listed('newly_listed.json')
     new_listings = [c for c in list(newly_listed) if c not in order and c not in sold_coins]
     if announcement_coin:
         new_listings = [c for c in list(newly_listed) if c not in announcement_coin]
@@ -79,8 +85,6 @@ def main():
     enable_sms = config['TRADE_OPTIONS']['ENABLE_SMS']
     
     globals.stop_threads = False
-    
-    session = {}
     
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
@@ -443,9 +447,9 @@ def main():
 
                                     session[announcement_coin]['orders'].append(copy.deepcopy(order[announcement_coin]))
                                     logger.info(f"Parial fill order detected.  {order_status=} | {partial_amount=} out of {amount=} | {partial_fee=} | {price=}")
-
-                                logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
-                                order.clear()  # reset for next iteration
+                                else:
+                                    logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
+                                    order.clear()  # reset for next iteration
                         
                             
                     else:
