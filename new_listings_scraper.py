@@ -56,7 +56,7 @@ def get_announcement(pairing):
 def get_coins_by_accouncement_text(latest_announcement, pairing):
     
     if "adds" in latest_announcement.lower() and "trading pair" in latest_announcement.lower() and pairing in latest_announcement:
-        found_pairs = re.findall(r'[A-Z]{1,10}[/][A-Z]*', latest_announcement)
+        found_pairs = re.findall(r'[A-Z0-9]{1,10}[/][A-Z]*', latest_announcement)
         found_coins = [i.replace(f'/{pairing}', "") for i in found_pairs if i.find(pairing) != -1]
         return found_coins
     elif "will list" in latest_announcement.lower():
