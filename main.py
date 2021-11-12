@@ -49,11 +49,11 @@ else:
 
 # Keep the supported currencies loaded in RAM so no time is wasted fetching
 # currencies.json from disk when an announcement is made
-global supported_currencies
+global gateio_supported_currencies
 
 
 logger.debug("Starting get_all_currencies")
-supported_currencies = get_all_currencies(single=True)
+gateio_supported_currencies = get_all_gateio_currencies(single=True)
 logger.debug("Finished get_all_currencies")
 
 
@@ -295,13 +295,13 @@ def main():
             else:
                 announcement_coin = False
 
-            global supported_currencies
+            global gateio_supported_currencies
 
             if announcement_coin and announcement_coin not in order and announcement_coin not in sold_coins and announcement_coin not in old_coins:
                 logger.debug(f'New annoucement detected: {announcement_coin}')
 
-                if supported_currencies is not False:
-                    if announcement_coin in supported_currencies:
+                if gateio_supported_currencies is not False:
+                    if announcement_coin in gateio_supported_currencies:
                         
                         # get latest price object
                         obj = get_last_price(announcement_coin, pairing, False)

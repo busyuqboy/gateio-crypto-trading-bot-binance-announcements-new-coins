@@ -17,11 +17,11 @@ import globals
 client = load_gateio_creds('auth/auth.yml')
 spot_api = SpotApi(ApiClient(client))
 
-global supported_currencies
+global gateio_supported_currencies
 
 
 
-def get_announcement(pairing):
+def get_binance_announcement(pairing):
     """
     Retrieves new coin listing announcements
     """
@@ -84,18 +84,18 @@ def get_newly_listed_coin(pairing, new_listings):
     return False
 
 
-def read_newly_listed(file):
+def read_upcoming_listing(file):
     """
     Get user inputed new listings (see https://www.gate.io/en/marketlist?tab=newlisted)
     """
     with open(file, "r+") as f:
         return json.load(f)
 
-def store_newly_listed(listings):
+def store_upcoming_listing(listings):
     """
     Save order into local json file
     """
-    with open('newly_listed.json', 'w') as f:
+    with open('upcoming_listings.json', 'w') as f:
         json.dump(listings, f, indent=4)
 
 
@@ -135,7 +135,7 @@ def search_binance_and_update(pairing):
             if globals.stop_threads:
                 break
         try:
-            latest_coins = get_announcement(pairing)
+            latest_coins = get_binance_announcement(pairing)
             if latest_coins and len(latest_coins) > 0:
                 store_new_listing(latest_coins)
             
@@ -190,12 +190,12 @@ def search_gateio_and_update(pairing, new_listings):
                 break
 
 
-def get_all_currencies(single=False):
+def get_all_gateio_currencies(single=False):
     """
     Get a list of all currencies supported on gate io
     :return:
     """
-    global supported_currencies
+    global gateio_supported_currencies
     while not globals.stop_threads:
         logger.info("Getting the list of supported currencies from gate io")
         response = spot_api.list_currencies()
@@ -205,9 +205,9 @@ def get_all_currencies(single=False):
             json.dump(currency_list, f, indent=4)
             logger.info("List of gate io currencies saved to currencies.json. Waiting 5 "
                   "minutes before refreshing list...")
-        supported_currencies = currency_list
+        gateio_supported_currencies = currency_list
         if single:
-            return supported_currencies
+            return gateio_supported_currencies
         else:
             for x in range(300):
                 time.sleep(1)
