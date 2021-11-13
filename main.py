@@ -85,6 +85,8 @@ def main():
     enable_sms = config['TRADE_OPTIONS']['ENABLE_SMS']
     
     globals.stop_threads = False
+
+    session = {}
     
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
@@ -97,7 +99,7 @@ def main():
     t2 = threading.Thread(target=search_binance_and_update, args=[pairing,])
     t2.start()
 
-    t3 = threading.Thread(target=get_all_currencies)
+    t3 = threading.Thread(target=get_all_gateio_currencies)
     t3.start()
 
     try:
@@ -125,12 +127,12 @@ def main():
 
                     top_position_price = stored_price + (stored_price*coin_tp /100)
 
-                    #logger.info(f"Data for sell: {coin=},  {stored_price=}, {coin_tp=}, {coin_sl=}, {volume=}, {symbol=}")
+                    logger.debug(f"Data for sell: {coin=},  {stored_price=}, {coin_tp=}, {coin_sl=}, {volume=}, {symbol=}")
                     
-                    #logger.info(f"get_last_price existing coin: {coin}")
+                    logger.debug(f"get_last_price existing coin: {coin}")
                     obj = get_last_price(symbol, pairing, False)
                     last_price = obj.last
-                    #logger.info("Finished get_last_price")
+                    logger.debug("Finished get_last_price")
 
                     stop_loss_price = stored_price + (stored_price*coin_sl /100)
 
@@ -310,6 +312,7 @@ def main():
                         if float(price) == 0:
                             continue # wait for positive price
 
+
                         volume = config['TRADE_OPTIONS']['QUANTITY']
                         
                         if announcement_coin not in session:
@@ -397,8 +400,10 @@ def main():
                                 order[announcement_coin]['_tsl'] = tsl
                                 logger.debug('Finished buy place_order')
 
+
                         except Exception as e:
                             logger.error(e)
+
 
                         else:
                             order_status = order[announcement_coin]['_status']
@@ -457,8 +462,9 @@ def main():
                             os.remove("new_listing.json")
                         logger.debug('Removed new_listing.json due to coin not being '
                                     'listed on gate io')
+
                 else:
-                    get_all_currencies()
+                    get_all_gateio_currencies()
             #else:
             #    logger.info( 'No coins announced, or coin has already been bought/sold. Checking more frequently in case TP and SL need updating')
 
