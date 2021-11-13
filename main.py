@@ -18,7 +18,7 @@ from json import JSONEncoder
 import os.path
 import sys, os
 
-old_coins = ["MOVR", "BNX", "SAND"]
+old_coins = ["KP3R"]
 
 # loads local configuration
 config = load_config('config.yml')
