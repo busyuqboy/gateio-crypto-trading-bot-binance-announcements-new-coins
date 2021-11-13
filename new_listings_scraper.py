@@ -4,10 +4,12 @@ import re
 import time
 import random
 import string
-
 import requests
+import json
+import pytz
 from gate_api import ApiClient, SpotApi
-
+from datetime import datetime
+from dateutil.parser import parse
 from auth.gateio_auth import *
 from logger import logger
 from store_order import *
@@ -19,13 +21,47 @@ spot_api = SpotApi(ApiClient(client))
 
 global gateio_supported_currencies
 
+previously_found_coins = set()
+
+
+def get_kucoin_announcement():
+    logger.debug("Pulling kucoin announcement page")
+    request_url = f"https://www.kucoin.com/_api/cms/articles?page=1&pageSize=10&category=listing&lang=en_US"
+    latest_announcement = requests.get(request_url)
+    announcements = latest_announcement.json()
+    announcement = announcements['items'][0]['title']
+    announcement_launch = announcements['items'][0]['summary'].replace("Trading: ", "")
+    
+    try:
+        found_date_text = announcement_launch[9:-6]
+        found_date_time = announcement_launch[0:5]
+        d = parse(f'{found_date_text}, {found_date_time} UTC')
+    except ValueError:
+        return False
+
+    found_coin = re.findall('\(([^)]+)', announcement)
+    if len(found_coin) == 1 and found_coin[0] not in previously_found_coins:
+            uppers = found_coin[0]
+            previously_found_coins.add(uppers)
+            logger.debug(f'New coin detected: {uppers} at {announcement_launch}')
+            value = {
+                "symbol": uppers,
+                "atUtc": d.timestamp(),
+                "atLocal": d.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
+                "foundUtc": datetime.now().timestamp(),
+                "foundLocal": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
+            }
+            
+            return value
+
+    return False
 
 
 def get_binance_announcement(pairing):
     """
     Retrieves new coin listing announcements
     """
-    logger.debug("Pulling announcement page")
+    logger.debug("Pulling kucoin announcement page")
     # Generate random query/params to help prevent caching
     rand_page_size = random.randint(1, 200)
     letters = string.ascii_letters
@@ -71,10 +107,10 @@ def get_coins_by_accouncement_text(latest_announcement, pairing):
 def get_newly_listed_coin(pairing, new_listings):
     logger.debug("Pulling announcement page for [adds + trading pairs] or [will list] scenarios")
 
-    if len(new_listings) == 0:
+    if len(new_listings) == 0 or new_listings[0]['atUtc'] is not None:
         return False
     else:
-        symbol = new_listings[0]
+        symbol = new_listings[0]['symbol']
     
     found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)    
     
@@ -157,7 +193,7 @@ def search_gateio_and_update(pairing, new_listings):
     count = 59
     while not globals.stop_threads:
         
-        latest_coins = get_newly_listed_coin(pairing, new_listings)
+        latest_coins = get_newly_listed_coin(pairing, [n for n in new_listings if n['atUtc'] is None])
         if latest_coins:
             try:
                 #ready = is_currency_trade_ready(latest_coins[0], pairing)
@@ -188,6 +224,48 @@ def search_gateio_and_update(pairing, new_listings):
         time.sleep(1)
         if globals.stop_threads:
                 break
+
+
+def search_kucion_and_update(new_listings):
+    """
+    Pretty much our main func for gateio listings
+    """
+    count = 57
+    while not globals.stop_threads:
+        sleep_time = 3
+        for x in range(sleep_time):
+            time.sleep(1)
+            if globals.stop_threads:
+                break
+        try:
+            latest_coin = get_kucoin_announcement()
+
+            #test = datetime(2021, 11, 11, 16, 25, 0, 0)
+            #latest_coin = { 
+            #    "symbol": "DPR", 
+            #    "atUtc": test.timestamp(), 
+            #    "atLocal": test.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
+            #    "foundUtc": datetime.now().timestamp(),
+            #    "foundLocal": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
+            #    }
+
+            if latest_coin:
+                if len([l for l in new_listings if l['symbol'] == latest_coin['symbol']]) == 0:
+                    logger.info(f'New coin detected: {latest_coin} on Kucoin')
+                    new_listings.append(latest_coin)
+                    store_upcoming_listing(new_listings)
+
+                    #listing = []
+                    #listing.append(latest_coin['symbol'])
+                    #store_new_listing(listing)
+            
+            count = count + 3
+            if count % 60 == 0:
+                logger.info("One minute has passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
+                count = 0
+        except Exception as e:
+            logger.info(e)
+
 
 
 def get_all_gateio_currencies(single=False):

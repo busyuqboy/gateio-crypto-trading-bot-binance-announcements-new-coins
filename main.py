@@ -18,7 +18,7 @@ from json import JSONEncoder
 import os.path
 import sys, os
 
-old_coins = ["MOVR", "BNX", "SAND"]
+old_coins = ["KP3R", "BNX", "SAND"]
 
 # loads local configuration
 config = load_config('config.yml')
@@ -60,13 +60,14 @@ logger.debug("Finished get_all_currencies")
 global new_listings
 
 # load necessary files
-if os.path.isfile('newly_listed.json'):
-    newly_listed = read_newly_listed('newly_listed.json')
-    new_listings = [c for c in list(newly_listed) if c not in order and c not in sold_coins]
+if os.path.isfile('upcoming_listings.json'):
+    upcoming = read_upcoming_listing('upcoming_listings.json')
+    new_listings = [c for c in list(upcoming) if c['symbol'] not in order and c['symbol'] not in sold_coins]
     if announcement_coin:
-        new_listings = [c for c in list(newly_listed) if c not in announcement_coin]
+        new_listings = [c for c in list(upcoming) if c['symbol'] not in announcement_coin]
 else:
-    new_listings = {}
+    store_upcoming_listing([])
+    new_listings = []
 
 
 def main():
@@ -97,8 +98,11 @@ def main():
     t2 = threading.Thread(target=search_binance_and_update, args=[pairing,])
     t2.start()
 
-    t3 = threading.Thread(target=get_all_currencies)
-    t3.start()
+    #t3 = threading.Thread(target=get_all_gateio_currencies)
+    #t3.start()
+
+    t4 = threading.Thread(target=search_kucion_and_update,args=[new_listings,])
+    t4.start()
 
     try:
         while True:
@@ -111,6 +115,15 @@ def main():
                         st = order[coin]['_status']
                         logger.info(f"Order is initialized but not ready | Status={st}")
                         continue
+
+                    # check if atUtc time is ready (less 1 second)
+                    if new_listings and coin in [l['symbol'] for l in new_listings if l['symbol'] ==  coin and l['atUtc'] is not None]:
+                        continue
+                        #utc_now = datetime.now().timestamp()
+                        #at_utc = [l['atUtc'] for l in new_listings if l['symbol'] ==  coin][0]
+                        #if (at_utc - utc_now) > 1:
+                        #    logger.info(f"Waiting on diff of {at_utc - utc_now} for {coin} to be active on Kucoin")
+                        #    continue #not ready to watch trend
 
                     # store some necessary trade info for a sell
                     coin_tp = order[coin]['_tp']
@@ -453,12 +466,11 @@ def main():
                             
                     else:
                         logger.warning(f'{announcement_coin=} is not supported on gate io')
-                        if os.path.isfile('new_listing.json'):
-                            os.remove("new_listing.json")
+                        old_coins.append(announcement_coin)
                         logger.debug('Removed new_listing.json due to coin not being '
                                     'listed on gate io')
                 else:
-                    get_all_currencies()
+                    get_all_gateio_currencies()
             #else:
             #    logger.info( 'No coins announced, or coin has already been bought/sold. Checking more frequently in case TP and SL need updating')
 
@@ -470,7 +482,8 @@ def main():
         globals.stop_threads = True
         t1.join()
         t2.join()
-        t3.join()
+        #t3.join()
+        t4.join()
 
 
 if __name__ == '__main__':
