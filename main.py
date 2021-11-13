@@ -426,9 +426,10 @@ def main():
 
                                     session[announcement_coin]['orders'].append(copy.deepcopy(order[announcement_coin]))
                                     logger.info(f"Parial fill order detected.  {order_status=} | {partial_amount=} out of {amount=} | {partial_fee=} | {price=}")
-                                else:
-                                    logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
-                                    order.clear()  # reset for next iteration
+                                
+                                # order not filled, try again
+                                logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
+                                order.clear()  # reset for next iteration
                             
                     else:
                         logger.warning(f'{announcement_coin=} is not supported on gate io')
