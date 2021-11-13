@@ -14,7 +14,7 @@ from json import JSONEncoder
 import os.path
 import sys, os
 
-old_coins = ["OTHERCRAP"]
+old_coins = ["KP3R"]
 
 # loads local configuration
 config = load_config('config.yml')
@@ -34,7 +34,7 @@ else:
 if os.path.isfile('session.json'):
     session = load_order('session.json')
 else:
-    session = {}
+    session = {}    
 
 if os.path.isfile('new_listing.json'):
     announcement_coin = load_order('new_listing.json')
@@ -44,12 +44,24 @@ else:
 
 # Keep the supported currencies loaded in RAM so no time is wasted fetching
 # currencies.json from disk when an announcement is made
-global supported_currencies
+global gateio_supported_currencies
 
 
 logger.debug("Starting get_all_currencies")
-supported_currencies = get_all_currencies(single=True)
+gateio_supported_currencies = get_all_gateio_currencies(single=True)
 logger.debug("Finished get_all_currencies")
+
+
+global new_listings
+
+# load necessary files
+if os.path.isfile('newly_listed.json'):
+    newly_listed = read_upcoming_listing('newly_listed.json')
+    new_listings = [c for c in list(newly_listed) if c not in order and c not in sold_coins]
+    if announcement_coin:
+        new_listings = [c for c in list(newly_listed) if c not in announcement_coin]
+else:
+    new_listings = {}
 
 
 def main():
@@ -69,6 +81,8 @@ def main():
 
     globals.stop_threads = False
 
+    session = {}
+    
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
 
@@ -77,6 +91,9 @@ def main():
 
     t2 = threading.Thread(target=get_all_currencies)
     t2.start()
+
+    t3 = threading.Thread(target=get_all_gateio_currencies)
+    t3.start()
 
     try:
         while True:
@@ -104,10 +121,12 @@ def main():
 
                     logger.debug(f'Data for sell: {coin=} | {stored_price=} | {coin_tp=} | {coin_sl=} | {volume=} | {symbol=} ')
 
-                    logger.info(f'get_last_price existing coin: {coin}')
+                    logger.debug(f"Data for sell: {coin=},  {stored_price=}, {coin_tp=}, {coin_sl=}, {volume=}, {symbol=}")
+                    
+                    logger.debug(f"get_last_price existing coin: {coin}")
                     obj = get_last_price(symbol, pairing, False)
                     last_price = obj.last
-                    logger.info("Finished get_last_price")
+                    logger.debug("Finished get_last_price")
 
                     top_position_price = stored_price + (stored_price*coin_tp /100)
                     stop_loss_price = stored_price + (stored_price*coin_sl /100)
@@ -204,7 +223,6 @@ def main():
                                 sold_coins[coin].pop("local_vars_configuration")
                                 sold_coins[coin]['profit'] = f'{float(last_price) - stored_price}'
                                 sold_coins[coin]['relative_profit_%'] = f'{(float(last_price) - stored_price) / stored_price * 100}%'
-
                             else:
                                 sold_coins[coin] = {
                                     'symbol': coin,
@@ -228,7 +246,6 @@ def main():
                                 
                                 logger.info('Sold coins:\r\n' + str(sold_coins[coin]))
 
-                            
                             # add to session orders
                             try: 
                                 if len(session) > 0:
@@ -239,7 +256,7 @@ def main():
                             except Exception as e:
                                 print(e)
                                 pass
-                            
+
                             store_order('sold.json', sold_coins)
                             logger.info('Order saved in sold.json')
                             
@@ -252,15 +269,13 @@ def main():
             else:
                 announcement_coin = False
 
-            global supported_currencies
+            global gateio_supported_currencies
 
             if announcement_coin and announcement_coin not in order and announcement_coin not in sold_coins and announcement_coin not in old_coins:
-                logger.info(f'New announcement detected: {announcement_coin}')
-                if not supported_currencies:
-                    supported_currencies = get_all_currencies(single=True)
-                if supported_currencies:
-                    if announcement_coin in supported_currencies:
-                        logger.debug("Starting get_last_price")
+                logger.debug(f'New annoucement detected: {announcement_coin}')
+
+                if gateio_supported_currencies is not False:
+                    if announcement_coin in gateio_supported_currencies:
                         
                         # get latest price object
                         obj = get_last_price(announcement_coin, pairing, False)
@@ -268,6 +283,7 @@ def main():
 
                         if float(price) == 0:
                             continue # wait for positive price
+
 
                         volume = config['TRADE_OPTIONS']['QUANTITY']
                         
@@ -280,8 +296,9 @@ def main():
                         
                         # initalize order object
                         if announcement_coin not in order:
-                            volume = volume - session[announcement_coin]['total_volume']    
-                            
+
+                            volume = volume - session[announcement_coin]['total_volume']
+
                             order[announcement_coin] = {}
                             order[announcement_coin]['_amount'] = f'{volume / float(price)}'
                             order[announcement_coin]['_left'] = f'{volume / float(price)}'
@@ -356,8 +373,10 @@ def main():
                                 order[announcement_coin]['_tsl'] = tsl
                                 logger.debug('Finished buy place_order')
 
+
                         except Exception as e:
                             logger.error(e)
+
 
                         else:
                             order_status = order[announcement_coin]['_status']
@@ -393,13 +412,10 @@ def main():
                                     session[announcement_coin]['total_fees'] = session[announcement_coin]['total_fees'] + partial_fee
 
                                     session[announcement_coin]['orders'].append(copy.deepcopy(order[announcement_coin]))
-
                                     logger.info(f"Parial fill order detected.  {order_status=} | {partial_amount=} out of {amount=} | {partial_fee=} | {price=}")
-                                
-                                # order not filled, try again.
-                                logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
-                                order.clear()  # reset for next iteration
-                        
+                                else:
+                                    logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
+                                    order.clear()  # reset for next iteration
                             
                     else:
                         logger.warning(f'{announcement_coin=} is not supported on gate io')
@@ -407,10 +423,11 @@ def main():
                             os.remove("new_listing.json")
                         logger.debug('Removed new_listing.json due to coin not being '
                                     'listed on gate io')
+
                 else:
-                    logger.error('supported_currencies is not initialized')
-            else:
-                logger.info( 'No coins announced, or coin has already been bought/sold. Checking more frequently in case TP and SL need updating')
+                    get_all_gateio_currencies()
+            #else:
+            #    logger.info( 'No coins announced, or coin has already been bought/sold. Checking more frequently in case TP and SL need updating')
 
             time.sleep(1)
 
