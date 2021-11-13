@@ -55,11 +55,11 @@ logger.debug("Finished get_all_currencies")
 global new_listings
 
 # load necessary files
-if os.path.isfile('newly_listed.json'):
-    newly_listed = read_upcoming_listing('newly_listed.json')
-    new_listings = [c for c in list(newly_listed) if c not in order and c not in sold_coins]
+if os.path.isfile('upcoming_listings.json'):
+    upcoming_listings = read_upcoming_listing('upcoming_listings.json')
+    new_listings = [c for c in list(upcoming_listings) if c not in order and c not in sold_coins]
     if announcement_coin:
-        new_listings = [c for c in list(newly_listed) if c not in announcement_coin]
+        new_listings = [c for c in list(upcoming_listings) if c not in announcement_coin]
 else:
     new_listings = {}
 
