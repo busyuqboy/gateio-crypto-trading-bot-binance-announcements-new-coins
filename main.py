@@ -86,10 +86,10 @@ def main():
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
 
-    t = threading.Thread(target=search_and_update)
-    t.start()
+    t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_listings])
+    t1.start()
 
-    t2 = threading.Thread(target=get_all_currencies)
+    t2 = threading.Thread(target=search_binance_and_update, args=[pairing,])
     t2.start()
 
     t3 = threading.Thread(target=get_all_gateio_currencies)
@@ -437,8 +437,9 @@ def main():
     except KeyboardInterrupt:
         logger.info('Stopping Threads')
         globals.stop_threads = True
-        t.join()
+        t1.join()
         t2.join()
+        t3.join()
 
 
 if __name__ == '__main__':
