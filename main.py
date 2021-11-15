@@ -104,7 +104,7 @@ def main():
 
                     if float(order[coin]['_tp']) == 0:
                         st = order[coin]['_status']
-                        logger.Info(f"Order is initialized but not ready. Continuing. | Status={st}")
+                        logger.info(f"Order is initialized but not ready. Continuing. | Status={st}")
                         continue
 
                     # store some necessary trade info for a sell
