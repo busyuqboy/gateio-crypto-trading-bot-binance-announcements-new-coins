@@ -376,6 +376,13 @@ def main():
                             else:
                                 # just in case...stop buying more than our config amount
                                 assert amount * float(price) <= float(volume)
+                                
+                                try:
+                                    order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
+                                except GateApiException as ge:
+                                    logger.error(ge)
+                                    order.clear()  # reset for next iteration
+                                    continue
 
                                 order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
                                 order[announcement_coin] = order[announcement_coin].__dict__
