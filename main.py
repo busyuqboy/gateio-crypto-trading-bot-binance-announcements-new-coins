@@ -53,17 +53,17 @@ gateio_supported_currencies = get_all_gateio_currencies(single=True)
 logger.debug("Finished get_all_currencies")
 
 
-global new_listings
+global new_gateio_listings
 
 # load necessary files
 if os.path.isfile('upcoming_listings.json'):
     upcoming_listings = read_upcoming_listing('upcoming_listings.json')
-    new_listings = [c for c in list(upcoming_listings) if c not in order and c not in sold_coins]
+    new_gateio_listings = [c for c in list(upcoming_listings) if c not in order and c not in sold_coins]
     if announcement_coin:
-        new_listings = [c for c in list(upcoming_listings) if c not in announcement_coin]
+        new_gateio_listings = [c for c in list(upcoming_listings) if c not in announcement_coin]
 else:
     store_upcoming_listing([])
-    new_listings = []
+    new_gateio_listings = []
 
 
 def main():
@@ -88,16 +88,16 @@ def main():
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
 
-    t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_listings])
+    t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_gateio_listings])
     t1.start()
 
-    t2 = threading.Thread(target=search_binance_and_update, args=[pairing,])
+    t2 = threading.Thread(target=search_binance_and_update, args=[pairing])
     t2.start()
 
     t3 = threading.Thread(target=get_all_gateio_currencies)
     t3.start()
 
-    t4 = threading.Thread(target=search_kucion_and_update,args=[new_listings,])
+    t4 = threading.Thread(target=search_kucion_and_update)
     t4.start()
 
     try:
