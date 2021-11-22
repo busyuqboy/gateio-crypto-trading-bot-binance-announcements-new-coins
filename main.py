@@ -3,22 +3,19 @@ from store_order import *
 from logger import logger
 from load_config import *
 from new_listings_scraper import *
-from send_sms import *
 import globals
-
 from collections import defaultdict
 from datetime import datetime, time
 import time
 import threading
 import copy
-
 import json
 from json import JSONEncoder
-
 import os.path
 import sys, os
 
-old_coins = ["KP3R", "BNX", "SAND"]
+
+old_coins = ["KP3R"]
 
 # loads local configuration
 config = load_config('config.yml')
@@ -46,7 +43,6 @@ else:
     announcement_coin = False
 
 
-
 # Keep the supported currencies loaded in RAM so no time is wasted fetching
 # currencies.json from disk when an announcement is made
 global gateio_supported_currencies
@@ -61,10 +57,10 @@ global new_listings
 
 # load necessary files
 if os.path.isfile('upcoming_listings.json'):
-    upcoming = read_upcoming_listing('upcoming_listings.json')
-    new_listings = [c for c in list(upcoming) if c['symbol'] not in order and c['symbol'] not in sold_coins]
+    upcoming_listings = read_upcoming_listing('upcoming_listings.json')
+    new_listings = [c for c in list(upcoming_listings) if c not in order and c not in sold_coins]
     if announcement_coin:
-        new_listings = [c for c in list(upcoming) if c['symbol'] not in announcement_coin]
+        new_listings = [c for c in list(upcoming_listings) if c not in announcement_coin]
 else:
     store_upcoming_listing([])
     new_listings = []
@@ -83,14 +79,14 @@ def main():
     ttp = config['TRADE_OPTIONS']['TTP']
     pairing = config['TRADE_OPTIONS']['PAIRING']
     test_mode = config['TRADE_OPTIONS']['TEST']
-    enable_sms = config['TRADE_OPTIONS']['ENABLE_SMS']
-    
+
+
     globals.stop_threads = False
+
+    session = {}
     
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
-        if(enable_sms):
-            logger.info('!!! SMS Enabled on Buy/Sell !!!')
 
     t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_listings])
     t1.start()
@@ -98,8 +94,8 @@ def main():
     t2 = threading.Thread(target=search_binance_and_update, args=[pairing,])
     t2.start()
 
-    #t3 = threading.Thread(target=get_all_gateio_currencies)
-    #t3.start()
+    t3 = threading.Thread(target=get_all_gateio_currencies)
+    t3.start()
 
     t4 = threading.Thread(target=search_kucion_and_update,args=[new_listings,])
     t4.start()
@@ -110,10 +106,10 @@ def main():
             # basically the sell block and update TP and SL logic
             if len(order) > 0:
                 for coin in list(order):
-                    
+
                     if float(order[coin]['_tp']) == 0:
                         st = order[coin]['_status']
-                        logger.info(f"Order is initialized but not ready | Status={st}")
+                        logger.info(f"Order is initialized but not ready. Continuing. | Status={st}")
                         continue
 
                     # check if atUtc time is ready (less 1 second)
@@ -128,29 +124,32 @@ def main():
                     # store some necessary trade info for a sell
                     coin_tp = order[coin]['_tp']
                     coin_sl = order[coin]['_sl']
-                    
+
                     volume = order[coin]['_amount']
                     stored_price = float(order[coin]['_price'])
                     symbol = order[coin]['_fee_currency']
 
+                    # avoid div by zero error
                     if float(stored_price) == 0:
-                        continue #avoid div by zero error
+                        continue 
 
-                    top_position_price = stored_price + (stored_price*coin_tp /100)
+                    logger.debug(f'Data for sell: {coin=} | {stored_price=} | {coin_tp=} | {coin_sl=} | {volume=} | {symbol=} ')
 
-                    #logger.info(f"Data for sell: {coin=},  {stored_price=}, {coin_tp=}, {coin_sl=}, {volume=}, {symbol=}")
+                    logger.debug(f"Data for sell: {coin=},  {stored_price=}, {coin_tp=}, {coin_sl=}, {volume=}, {symbol=}")
                     
-                    #logger.info(f"get_last_price existing coin: {coin}")
+                    logger.debug(f"get_last_price existing coin: {coin}")
                     obj = get_last_price(symbol, pairing, False)
                     last_price = obj.last
-                    #logger.info("Finished get_last_price")
+                    logger.debug("Finished get_last_price")
 
+                    top_position_price = stored_price + (stored_price*coin_tp /100)
                     stop_loss_price = stored_price + (stored_price*coin_sl /100)
 
-                    logger.info(f'{symbol=}-{last_price=}\t[STOP: ${"{:,.5f}".format(stop_loss_price)} or {"{:,.2f}".format(coin_sl)}%]\t[TOP: ${"{:,.5f}".format(top_position_price)} or {"{:,.2f}".format(coin_tp)}%]\t[BUY: ${"{:,.5f}".format(stored_price)} (+/-): {"{:,.2f}".format(((float(last_price) - stored_price) / stored_price) * 100)}%]')
-
+                    # need positive price or continue and wait
                     if float(last_price) == 0:
-                        continue # need positive price / do not place buy order 
+                        continue
+
+                    logger.info(f'{symbol=}-{last_price=}\t[STOP: ${"{:,.5f}".format(stop_loss_price)} or {"{:,.2f}".format(coin_sl)}%]\t[TOP: ${"{:,.5f}".format(top_position_price)} or {"{:,.2f}".format(coin_tp)}%]\t[BUY: ${"{:,.5f}".format(stored_price)} (+/-): {"{:,.2f}".format(((float(last_price) - stored_price) / stored_price) * 100)}%]')
 
                     # update stop loss and take profit values if threshold is reached
                     if float(last_price) > stored_price + (
@@ -175,6 +174,7 @@ def main():
                         logger.info(f'updated tp: {round(new_tp, 3)}% / ${"{:,.3f}".format(new_top_position_price)}')
                         logger.info(f'updated sl: {round(new_sl, 3)}% / ${"{:,.3f}".format(new_stop_loss_price)}')
 
+
                     # close trade if tsl is reached or trail option is not enabled
                     elif float(last_price) < stored_price + (
                             stored_price * coin_sl / 100) or float(last_price) > stored_price + (
@@ -188,12 +188,11 @@ def main():
                             # sell for real if test mode is set to false
                             if not test_mode:
                                 sell = place_order(symbol, pairing, float(sell_volume_adjusted)*float(last_price), 'sell', last_price)
+                                logger.info("Finish sell place_order")
+
 
                                 #check for completed sell order
                                 if sell._status != 'closed':
-                                    # cancel sell order
-                                    if sell._status == "open":
-                                        cancel_open_order(sell._id, coin, pairing)
 
                                     # change order to sell remaing
                                     if float(sell._left) > 0 and float(sell._amount) > float(sell._left):
@@ -220,23 +219,12 @@ def main():
                                     # keep going.  Not finished until status is 'closed'
                                     continue
                                 
-                                logger.debug(f"Finish sell place_order {sell}")
-                                
-
-
-                            sold_message = f'sold {coin} with {round((float(last_price) - stored_price) * float(volume), 3)} profit | {round((float(last_price) - stored_price) / float(stored_price)*100, 3)}% PNL'
-                            logger.info(sold_message)
+                            logger.info(f'sold {coin} with {round((float(last_price) - stored_price) * float(volume), 3)} profit | {round((float(last_price) - stored_price) / float(stored_price)*100, 3)}% PNL')
 
                             # remove order from json file
                             order.pop(coin)
                             store_order('order.json', order)
                             logger.debug('Order saved in order.json')
-                            
-                            if not test_mode and enable_sms:
-                                try:
-                                    send_sms_message(sold_message)
-                                except Exception:
-                                    pass
 
                         except Exception as e:
                             logger.error(e)
@@ -249,7 +237,6 @@ def main():
                                 sold_coins[coin].pop("local_vars_configuration")
                                 sold_coins[coin]['profit'] = f'{float(last_price) - stored_price}'
                                 sold_coins[coin]['relative_profit_%'] = f'{(float(last_price) - stored_price) / stored_price * 100}%'
-                                
                             else:
                                 sold_coins[coin] = {
                                     'symbol': coin,
@@ -271,7 +258,7 @@ def main():
                                     'price': last_price
                                     }
                                 
-                                logger.info(f'Sold coins:\r\n {sold_coins[coin]}')
+                                logger.info('Sold coins:\r\n' + str(sold_coins[coin]))
 
                             # add to session orders
                             try: 
@@ -283,9 +270,10 @@ def main():
                             except Exception as e:
                                 print(e)
                                 pass
-                               
+
                             store_order('sold.json', sold_coins)
                             logger.info('Order saved in sold.json')
+                            
                                 
 
             # the buy block and logic pass
@@ -323,6 +311,7 @@ def main():
                         if float(price) == 0:
                             continue # wait for positive price
 
+
                         volume = config['TRADE_OPTIONS']['QUANTITY']
                         
                         if announcement_coin not in session:
@@ -334,6 +323,7 @@ def main():
                         
                         # initalize order object
                         if announcement_coin not in order:
+
                             volume = volume - session[announcement_coin]['total_volume']
 
                             order[announcement_coin] = {}
@@ -400,8 +390,14 @@ def main():
                             else:
                                 # just in case...stop buying more than our config amount
                                 assert amount * float(price) <= float(volume)
+                                
+                                try:
+                                    order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
+                                except GateApiException as ge:
+                                    logger.error(ge)
+                                    order.clear()  # reset for next iteration
+                                    continue
 
-                                order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
                                 order[announcement_coin] = order[announcement_coin].__dict__
                                 order[announcement_coin].pop("local_vars_configuration")
                                 order[announcement_coin]['_tp'] = tp
@@ -410,8 +406,10 @@ def main():
                                 order[announcement_coin]['_tsl'] = tsl
                                 logger.debug('Finished buy place_order')
 
+
                         except Exception as e:
                             logger.error(e)
+
 
                         else:
                             order_status = order[announcement_coin]['_status']
@@ -436,20 +434,9 @@ def main():
 
                                 store_order('order.json', order)
                                 store_order('session.json', session)
-                                
-                                if not test_mode and enable_sms:
-                                    try:
-                                        send_sms_message(message)
-                                    except Exception:
-                                        pass
                             else:
-                                if not test_mode and order_status == 'open':
-                                    # cancel orders and try again in the next iteration
-                                    cancel_open_order(order[announcement_coin]['_id'], announcement_coin, pairing)
-                                    logger.info(f"Cancelled order {order[announcement_coin]['_id']} .  Waiting for status of 'closed' for {announcement_coin}")
-                                
                                 if order_status == "cancelled" and float(order[announcement_coin]['_amount']) > float(order[announcement_coin]['_left']) and float(order[announcement_coin]['_left']) > 0:
-                                    # partial order. Change qty and fee_total
+                                    # partial order. Change qty and fee_total in order and finish any remaining balance
                                     partial_amount = float(order[announcement_coin]['_amount']) - float(order[announcement_coin]['_left'])
                                     partial_fee = float(order[announcement_coin]['_fee'])
                                     order[announcement_coin]['_amount_filled'] = f'{partial_amount}'
@@ -459,22 +446,25 @@ def main():
 
                                     session[announcement_coin]['orders'].append(copy.deepcopy(order[announcement_coin]))
                                     logger.info(f"Parial fill order detected.  {order_status=} | {partial_amount=} out of {amount=} | {partial_fee=} | {price=}")
-                                else:
-                                    logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
-                                    order.clear()  # reset for next iteration
-                        
+                                
+                                # order not filled, try again
+                                logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
+                                order.clear()  # reset for next iteration
                             
                     else:
                         logger.warning(f'{announcement_coin=} is not supported on gate io')
                         old_coins.append(announcement_coin)
                         logger.debug('Removed new_listing.json due to coin not being '
                                     'listed on gate io')
+
                 else:
                     get_all_gateio_currencies()
             #else:
             #    logger.info( 'No coins announced, or coin has already been bought/sold. Checking more frequently in case TP and SL need updating')
 
             time.sleep(1)
+
+
             # except Exception as e:
             # print(e)
     except KeyboardInterrupt:
