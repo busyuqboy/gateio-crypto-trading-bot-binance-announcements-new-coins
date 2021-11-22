@@ -107,10 +107,10 @@ def get_coins_by_accouncement_text(latest_announcement, pairing):
 def get_upcoming_gateio_listings(pairing, new_listings):
     logger.debug("Pulling announcement page for [adds + trading pairs] or [will list] scenarios")
 
-    if len(new_listings) == 0 or new_listings[0]['atUtc'] is not None:
+    if len(new_listings) == 0:
         return False
     else:
-        symbol = new_listings[0]['symbol']
+        symbol = new_listings[0]
     
     found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)    
     
