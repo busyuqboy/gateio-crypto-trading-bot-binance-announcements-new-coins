@@ -40,7 +40,7 @@ def get_kucoin_announcement():
         return False
 
     found_coin = re.findall('\(([^)]+)', announcement)
-    if len(found_coin) == 1 and found_coin[0] not in previously_found_coins:
+    if len(found_coin) == 1 and found_coin[0] not in previously_found_coins and "gets listed on kucoin" in announcement.lower():
             uppers = found_coin[0]
             previously_found_coins.add(uppers)
             logger.debug(f'New coin detected: {uppers} at {announcement_launch}')
@@ -135,6 +135,28 @@ def store_upcoming_listing(listings):
         json.dump(listings, f, indent=4)
 
 
+def store_kucoin_announcement(announcement):
+    """
+    Save order into local json file
+    """
+
+    if os.path.isfile('kucoin_announcements.json'):
+        file = load_order('kucoin_announcements.json')
+        if len([l for l in file if l['symbol'] == announcement['symbol']]) > 0:
+            return False
+        else:
+            file.append(announcement)
+
+            with open('kucoin_announcements.json', 'w') as f:
+                json.dump(file, f, indent=4)
+           
+            logger.info("Added KuCoin announcement to kucoin_announcements.json file")
+    else:
+        store_order('kucoin_announcements.json', set(announcement))
+        logger.info("File does not exist, creating file kucoin_announcements.json")
+    
+
+
 def store_new_listing(listing):
     """
     Only store a new listing if different from existing value
@@ -156,7 +178,6 @@ def store_new_listing(listing):
         new_listing = store_order('new_listing.json', listing)
         logger.info("File does not exist, creating file")
 
-        return new_listing
 
 
 def search_binance_and_update(pairing):
@@ -174,6 +195,7 @@ def search_binance_and_update(pairing):
             latest_coins = get_binance_announcement(pairing)
             if latest_coins and len(latest_coins) > 0:
                 store_new_listing(latest_coins)
+                logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
             
             count = count + 3
             if count % 60 == 0:
@@ -199,7 +221,7 @@ def search_gateio_and_update(pairing, new_listings):
                 #ready = is_currency_trade_ready(latest_coins[0], pairing)
                 price = get_last_price(latest_coins[0], pairing, True)
                 if float(price) > 0:
-                        logger.info(f"Found new 'tradable' coin {latest_coins[0]} with a price of {price}!! Adding to new listings.")
+                        logger.info(f"[Gate.io] Found new coin {latest_coins[0]} with a price of {price}!! Adding to new listings.")
                     
                         # store as announcement coin for main thread to pick up (It's go time!!!)
                         store_new_listing(latest_coins)
@@ -239,25 +261,20 @@ def search_kucion_and_update(new_listings):
                 break
         try:
             latest_coin = get_kucoin_announcement()
-
-            #test = datetime(2021, 11, 11, 16, 25, 0, 0)
-            #latest_coin = { 
-            #    "symbol": "DPR", 
-            #    "atUtc": test.timestamp(), 
-            #    "atLocal": test.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
-            #    "foundUtc": datetime.now().timestamp(),
-            #    "foundLocal": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
-            #    }
-
             if latest_coin:
-                if len([l for l in new_listings if l['symbol'] == latest_coin['symbol']]) == 0:
-                    logger.info(f'New coin detected: {latest_coin} on Kucoin')
-                    new_listings.append(latest_coin)
-                    store_upcoming_listing(new_listings)
-
-                    #listing = []
-                    #listing.append(latest_coin['symbol'])
-                    #store_new_listing(listing)
+                if len([l for l in new_listings if l == latest_coin['symbol']]) == 0:
+                    symbol = latest_coin['symbol']
+                    logger.info(f'[Kucoin] Found new coin {symbol}!! Adding to new listings.')
+                    
+                    # add to array. Tell the main thread run the buy/sell feature
+                    store_new_listing(new_listings)
+                    
+                    # add to array of known listings
+                    new_listings.append(symbol)
+                    
+                    # log to file all announements from kucoin
+                    store_kucoin_announcement(latest_coin)
+                    
             
             count = count + 3
             if count % 60 == 0:

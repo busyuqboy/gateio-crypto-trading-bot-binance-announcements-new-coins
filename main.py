@@ -15,7 +15,7 @@ import os.path
 import sys, os
 
 
-old_coins = ["KP3R"]
+old_coins = ["JASMY", "LIT"]
 
 # loads local configuration
 config = load_config('config.yml')
@@ -111,15 +111,6 @@ def main():
                         st = order[coin]['_status']
                         logger.info(f"Order is initialized but not ready. Continuing. | Status={st}")
                         continue
-
-                    # check if atUtc time is ready (less 1 second)
-                    if new_listings and coin in [l['symbol'] for l in new_listings if l['symbol'] ==  coin and l['atUtc'] is not None]:
-                        continue
-                        #utc_now = datetime.now().timestamp()
-                        #at_utc = [l['atUtc'] for l in new_listings if l['symbol'] ==  coin][0]
-                        #if (at_utc - utc_now) > 1:
-                        #    logger.info(f"Waiting on diff of {at_utc - utc_now} for {coin} to be active on Kucoin")
-                        #    continue #not ready to watch trend
 
                     # store some necessary trade info for a sell
                     coin_tp = order[coin]['_tp']
@@ -305,8 +296,7 @@ def main():
                     if announcement_coin in gateio_supported_currencies:
                         
                         # get latest price object
-                        obj = get_last_price(announcement_coin, pairing, False)
-                        price = obj.last
+                        price = get_last_price(announcement_coin, pairing, True)
 
                         if float(price) == 0:
                             continue # wait for positive price
@@ -472,7 +462,7 @@ def main():
         globals.stop_threads = True
         t1.join()
         t2.join()
-        #t3.join()
+        t3.join()
         t4.join()
 
 
