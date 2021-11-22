@@ -2,13 +2,13 @@
 auth/auth.yml
 auth/auth_twilio.yml
 
-# Ignore orders
+# Ignore json files
 order.json
 sold.json
 new_listing.json
 session.json
-upcoming_listings.json
 kucoin_announcements.json
+upcoming_listings.json
 
 # Ignore bot log
 bot.log
