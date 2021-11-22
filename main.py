@@ -384,7 +384,6 @@ def main():
                                     order.clear()  # reset for next iteration
                                     continue
 
-                                order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
                                 order[announcement_coin] = order[announcement_coin].__dict__
                                 order[announcement_coin].pop("local_vars_configuration")
                                 order[announcement_coin]['_tp'] = tp
