@@ -119,6 +119,14 @@ def main():
                     volume = order[coin]['_amount']
                     stored_price = float(order[coin]['_price'])
                     symbol = order[coin]['_fee_currency']
+                    
+                    # set ttp and tsl to what is stored in order.json
+                    order_ttp = order[coin]['_ttp']
+                    order_tsl = order[coin]['_tsl']
+                    if order_ttp == 0:
+                        order_ttp = ttp # use config value
+                    if order_tsl == 0:
+                        order_tsl = tsl # user config value
 
                     # avoid div by zero error
                     if float(stored_price) == 0:
@@ -146,12 +154,12 @@ def main():
                     if float(last_price) > stored_price + (
                             stored_price * coin_tp / 100) and enable_tsl:
                         # increase as absolute value for TP
-                        new_tp = float(last_price) + (float(last_price) * ttp / 100)
+                        new_tp = float(last_price) + (float(last_price) * order_ttp / 100)
                         # convert back into % difference from when the coin was bought
                         new_tp = float((new_tp - stored_price) / stored_price * 100)
 
                         # same deal as above, only applied to trailing SL
-                        new_sl = float(last_price) + (float(last_price)*tsl / 100)
+                        new_sl = float(last_price) + (float(last_price) * order_tsl / 100)
                         new_sl = float((new_sl - stored_price) / stored_price * 100)
 
                         # new values to be added to the json file
@@ -322,6 +330,8 @@ def main():
                             order[announcement_coin]['_fee'] = f'{0}'
                             order[announcement_coin]['_tp'] = f'{0}'
                             order[announcement_coin]['_sl'] = f'{0}'
+                            order[announcement_coin]['_ttp'] = f'{0}'
+                            order[announcement_coin]['_tsl'] = f'{0}'
                             order[announcement_coin]['_status'] = 'unknown'
                             if announcement_coin in session:
                                 if len(session[announcement_coin]['orders']) == 0:
