@@ -25,7 +25,11 @@ def get_last_price(base,quote, return_price_only):
     
     logger.info(f"GET PRICE: {t.currency_pair} | last={t.last} | change%={t.change_percentage} | lowest_ask={t.lowest_ask} | highest_bid={t.highest_bid} | base_volue={t.base_volume} | quote_volume={t.quote_volume}")
     return t
+ 
     
+def is_currency_trade_ready(base, quote):
+    status = spot_api.get_currency_pair(currency_pair=f'{base}_{quote}')
+    return status._trade_status == "tradable"
 
 
 def get_min_amount(base,quote):
