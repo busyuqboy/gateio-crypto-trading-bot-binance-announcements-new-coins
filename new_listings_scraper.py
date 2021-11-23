@@ -255,7 +255,10 @@ def search_gateio_and_update(pairing, new_listings):
         
         count = count + 1
         if count % 60 == 0:
-            logger.info("One minute has passed.  Checking for coin listing on Gate.io every 3 seconds (in a separate thread)")
+            nl = ""
+            if len(new_listings) > 0:
+                nl = new_listings[0]
+            logger.info(f"One minute has passed.  Checking for coin listing {nl} on Gate.io every 3 seconds (in a separate thread)")
             count = 0
        
         time.sleep(1)
