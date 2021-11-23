@@ -207,8 +207,12 @@ def search_binance_and_update(pairing):
                 for lc in latest_coins:
                     previously_found_coins.add(lc)
 
+                # only keep first
+                single_coin = list()
+                single_coin.append(latest_coins[0])
+
                 # add to array. Tell the main thread run the buy/sell feature
-                store_new_listing(latest_coins)
+                store_new_listing(single_coin)
 
                 logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
             
