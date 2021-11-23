@@ -157,7 +157,9 @@ def store_kucoin_announcement(announcement):
            
             logger.info("Added KuCoin announcement to kucoin_announcements.json file")
     else:
-        store_order('kucoin_announcements.json', set(announcement))
+        a = []
+        a.append(announcement)
+        store_order('kucoin_announcements.json', a)
         logger.info("File does not exist, creating file kucoin_announcements.json")
     
 
