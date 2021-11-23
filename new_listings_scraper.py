@@ -233,10 +233,10 @@ def search_gateio_and_update(pairing, new_listings):
         latest_coins = get_upcoming_gateio_listings(pairing, new_listings)
         if latest_coins:
             try:
-                #ready = is_currency_trade_ready(latest_coins[0], pairing)
-                price = get_last_price(latest_coins[0], pairing, True)
-                if float(price) > 0:
-                        logger.info(f"[Gate.io] Found new coin {latest_coins[0]} with a price of {price}!! Adding to new listings.")
+                ready = is_currency_trade_ready(latest_coins[0], pairing)
+                #price = get_last_price(latest_coins[0], pairing, True)
+                if ready:
+                        logger.info(f"[Gate.io] Found new coin {latest_coins[0]}!! Adding to new listings.")
                     
                         # store as announcement coin for main thread to pick up (It's go time!!!)
                         store_new_listing(latest_coins)
