@@ -4,10 +4,12 @@ import re
 import time
 import random
 import string
-
 import requests
+import json
+import pytz
 from gate_api import ApiClient, SpotApi
-
+from datetime import datetime
+from dateutil.parser import parse
 from auth.gateio_auth import *
 from logger import logger
 from store_order import *
@@ -19,13 +21,47 @@ spot_api = SpotApi(ApiClient(client))
 
 global gateio_supported_currencies
 
+previously_found_coins = set()
+
+
+def get_kucoin_announcement():
+    logger.debug("Pulling kucoin announcement page")
+    request_url = f"https://www.kucoin.com/_api/cms/articles?page=1&pageSize=10&category=listing&lang=en_US"
+    latest_announcement = requests.get(request_url)
+    announcements = latest_announcement.json()
+    announcement = announcements['items'][0]['title']
+    announcement_launch = announcements['items'][0]['summary'].replace("Trading: ", "")
+    
+    try:
+        found_date_text = announcement_launch[9:-6]
+        found_date_time = announcement_launch[0:5]
+        d = parse(f'{found_date_text}, {found_date_time} UTC')
+    except ValueError:
+        return False
+
+    found_coin = re.findall('\(([^)]+)', announcement)
+    if len(found_coin) == 1 and found_coin[0] not in previously_found_coins and "gets listed on kucoin" in announcement.lower():
+            uppers = found_coin[0]
+            previously_found_coins.add(uppers)
+            logger.debug(f'New coin detected: {uppers} at {announcement_launch}')
+            value = {
+                "symbol": uppers,
+                "atUtc": d.timestamp(),
+                "atLocal": d.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
+                "foundUtc": datetime.now().timestamp(),
+                "foundLocal": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
+            }
+            
+            return value
+
+    return False
 
 
 def get_binance_announcement(pairing):
     """
     Retrieves new coin listing announcements
     """
-    logger.debug("Pulling announcement page")
+    logger.debug("Pulling kucoin announcement page")
     # Generate random query/params to help prevent caching
     rand_page_size = random.randint(1, 200)
     letters = string.ascii_letters
@@ -49,7 +85,12 @@ def get_binance_announcement(pairing):
 
     announcement = latest_announcement['data']['catalogs'][0]['articles'][0]['title']
 
-    return get_coins_by_accouncement_text(announcement, pairing)
+    found = get_coins_by_accouncement_text(announcement, pairing)
+
+    if found and len([l for l in found if l in previously_found_coins]) == 0:
+        return found
+    
+    return False
 
 
 
@@ -99,6 +140,30 @@ def store_upcoming_listing(listings):
         json.dump(listings, f, indent=4)
 
 
+def store_kucoin_announcement(announcement):
+    """
+    Save order into local json file
+    """
+
+    if os.path.isfile('kucoin_announcements.json'):
+        file = load_order('kucoin_announcements.json')
+        if len([l for l in file if l['symbol'] == announcement['symbol']]) > 0:
+            return False
+        else:
+            file.append(announcement)
+
+            with open('kucoin_announcements.json', 'w') as f:
+                json.dump(file, f, indent=4)
+           
+            logger.info("Added KuCoin announcement to kucoin_announcements.json file")
+    else:
+        a = []
+        a.append(announcement)
+        store_order('kucoin_announcements.json', a)
+        logger.info("File does not exist, creating file kucoin_announcements.json")
+    
+
+
 def store_new_listing(listing):
     """
     Only store a new listing if different from existing value
@@ -117,17 +182,17 @@ def store_new_listing(listing):
             logger.info("New listing detected, updating file")
             return file
     else:
-        new_listing = store_order('new_listing.json', listing)
-        logger.info("File does not exist, creating file")
+        store_order('new_listing.json', listing)
+        logger.info("File does not exist, creating file new_listing.json")
 
-        return new_listing
+
 
 
 def search_binance_and_update(pairing):
     """
     Pretty much our main func for binance
     """
-    count = 57
+    count = 297
     while not globals.stop_threads:
         sleep_time = 3
         for x in range(sleep_time):
@@ -137,11 +202,23 @@ def search_binance_and_update(pairing):
         try:
             latest_coins = get_binance_announcement(pairing)
             if latest_coins and len(latest_coins) > 0:
-                store_new_listing(latest_coins)
+                
+                # add to found list
+                for lc in latest_coins:
+                    previously_found_coins.add(lc)
+
+                # only keep first
+                single_coin = list()
+                single_coin.append(latest_coins[0])
+
+                # add to array. Tell the main thread run the buy/sell feature
+                store_new_listing(single_coin)
+
+                logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
             
-            count = count + 3
-            if count % 60 == 0:
-                logger.info("One minute has passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
+            count = count + sleep_time
+            if count % 300 == 0:
+                logger.info("Five minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
             logger.info(e)
@@ -154,16 +231,16 @@ def search_gateio_and_update(pairing, new_listings):
     """
     Pretty much our main func for gateio listings
     """
-    count = 59
+    count = 299
     while not globals.stop_threads:
         
         latest_coins = get_upcoming_gateio_listings(pairing, new_listings)
         if latest_coins:
             try:
-                #ready = is_currency_trade_ready(latest_coins[0], pairing)
-                price = get_last_price(latest_coins[0], pairing, True)
-                if float(price) > 0:
-                        logger.info(f"Found new 'tradable' coin {latest_coins[0]} with a price of {price}!! Adding to new listings.")
+                ready = is_currency_trade_ready(latest_coins[0], pairing)
+                #price = get_last_price(latest_coins[0], pairing, True)
+                if ready:
+                        logger.info(f"[Gate.io] Found new coin {latest_coins[0]}!! Adding to new listings.")
                     
                         # store as announcement coin for main thread to pick up (It's go time!!!)
                         store_new_listing(latest_coins)
@@ -181,13 +258,51 @@ def search_gateio_and_update(pairing, new_listings):
         
         
         count = count + 1
-        if count % 60 == 0:
-            logger.info("One minute has passed.  Checking for coin listing on Gate.io every 3 seconds (in a separate thread)")
+        if count % 300 == 0:
+            nl = ""
+            if len(new_listings) > 0:
+                nl = new_listings[0]
+            logger.info(f"Five minutes have passed.  Checking for coin listing {nl} on Gate.io every 1 seconds (in a separate thread)")
             count = 0
        
         time.sleep(1)
         if globals.stop_threads:
                 break
+
+
+def search_kucion_and_update():
+    """
+    Pretty much our main func for gateio listings
+    """
+    count = 297
+    while not globals.stop_threads:
+        sleep_time = 3
+        for x in range(sleep_time):
+            time.sleep(1)
+            if globals.stop_threads:
+                break
+        try:
+            latest_coin = get_kucoin_announcement()
+            if latest_coin:
+                symbol = latest_coin['symbol']
+                logger.info(f'[Kucoin] Found new coin {symbol}!! Adding to new listings.')
+                
+                # add to array. Tell the main thread run the buy/sell feature
+                found = list()
+                found.append(symbol)
+                store_new_listing(found)
+                
+                # log to file all announements from kucoin
+                store_kucoin_announcement(latest_coin)
+                    
+            
+            count = count + sleep_time
+            if count % 300 == 0:
+                logger.info("Five minutes have passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
+                count = 0
+        except Exception as e:
+            logger.info(e)
+
 
 
 def get_all_gateio_currencies(single=False):
