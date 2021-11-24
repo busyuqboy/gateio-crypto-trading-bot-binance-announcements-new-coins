@@ -216,7 +216,7 @@ def search_binance_and_update(pairing):
 
                 logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
             
-            count = count + 3
+            count = count + sleep_time
             if count % 300 == 0:
                 logger.info("Five minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
                 count = 0
@@ -296,7 +296,7 @@ def search_kucion_and_update():
                 store_kucoin_announcement(latest_coin)
                     
             
-            count = count + 3
+            count = count + sleep_time
             if count % 300 == 0:
                 logger.info("Five minutes have passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
                 count = 0
