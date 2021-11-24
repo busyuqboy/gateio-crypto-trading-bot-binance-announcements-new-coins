@@ -83,8 +83,6 @@ def main():
 
     globals.stop_threads = False
 
-    session = {}
-    
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
 
