@@ -192,7 +192,7 @@ def search_binance_and_update(pairing):
     """
     Pretty much our main func for binance
     """
-    count = 57
+    count = 297
     while not globals.stop_threads:
         sleep_time = 3
         for x in range(sleep_time):
@@ -218,7 +218,7 @@ def search_binance_and_update(pairing):
             
             count = count + 3
             if count % 60 == 0:
-                logger.info("One minute has passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
+                logger.info("Five minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
             logger.info(e)
@@ -231,7 +231,7 @@ def search_gateio_and_update(pairing, new_listings):
     """
     Pretty much our main func for gateio listings
     """
-    count = 59
+    count = 299
     while not globals.stop_threads:
         
         latest_coins = get_upcoming_gateio_listings(pairing, new_listings)
@@ -258,11 +258,11 @@ def search_gateio_and_update(pairing, new_listings):
         
         
         count = count + 1
-        if count % 60 == 0:
+        if count % 300 == 0:
             nl = ""
             if len(new_listings) > 0:
                 nl = new_listings[0]
-            logger.info(f"One minute has passed.  Checking for coin listing {nl} on Gate.io every 3 seconds (in a separate thread)")
+            logger.info(f"Five minutes have passed.  Checking for coin listing {nl} on Gate.io every 1 seconds (in a separate thread)")
             count = 0
        
         time.sleep(1)
@@ -274,7 +274,7 @@ def search_kucion_and_update():
     """
     Pretty much our main func for gateio listings
     """
-    count = 57
+    count = 297
     while not globals.stop_threads:
         sleep_time = 3
         for x in range(sleep_time):
@@ -297,8 +297,8 @@ def search_kucion_and_update():
                     
             
             count = count + 3
-            if count % 60 == 0:
-                logger.info("One minute has passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
+            if count % 300 == 0:
+                logger.info("Five minutes have passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
             logger.info(e)
