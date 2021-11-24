@@ -217,7 +217,7 @@ def search_binance_and_update(pairing):
                 logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
             
             count = count + 3
-            if count % 60 == 0:
+            if count % 300 == 0:
                 logger.info("Five minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
