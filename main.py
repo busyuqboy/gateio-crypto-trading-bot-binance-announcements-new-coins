@@ -395,7 +395,7 @@ def main():
                                     order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
                                 except GateApiException as ge:
                                     logger.error(ge)
-                                    order.clear()  # reset for next iteration
+                                    order.pop(announcement_coin)  # reset for next iteration
                                     continue
 
                                 order[announcement_coin] = order[announcement_coin].__dict__
@@ -449,7 +449,7 @@ def main():
                                 
                                 # order not filled, try again
                                 logger.info(f"clearing order with a status of {order_status}.  Waiting for 'closed' status")
-                                order.clear()  # reset for next iteration
+                                order.pop(announcement_coin)  # reset for next iteration
                             
                     else:
                         logger.warning(f'{announcement_coin=} is not supported on gate io')
