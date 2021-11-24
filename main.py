@@ -1,3 +1,4 @@
+from send_sms import send_sms_message
 from trade_client import *
 from store_order import *
 from logger import logger
@@ -79,12 +80,15 @@ def main():
     ttp = config['TRADE_OPTIONS']['TTP']
     pairing = config['TRADE_OPTIONS']['PAIRING']
     test_mode = config['TRADE_OPTIONS']['TEST']
+    enable_sms = config['TRADE_OPTIONS']['ENABLE_SMS']
 
 
     globals.stop_threads = False
 
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
+        if enable_sms:
+            logger.info(f"!!! SMS ENABLED !!!")
 
     t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_gateio_listings])
     t1.start()
@@ -179,6 +183,8 @@ def main():
                         try:
                             fees = float(order[coin]['_fee'])
                             sell_volume_adjusted = float(volume) - fees
+                            pnl = (float(last_price) - stored_price)
+                            pnl_perc = pnl / stored_price * 100
 
                             logger.info(f'starting sell place_order with :{symbol} | {pairing} | {volume} | {sell_volume_adjusted} | {fees} | {float(sell_volume_adjusted)*float(last_price)} | side=sell | last={last_price}')
 
@@ -196,12 +202,15 @@ def main():
                                         # adjust down order _amount and _fee
                                         order[coin]['_amount'] = sell._left
                                         order[coin]['_fee'] = f'{fees - (float(sell._fee) / float(sell._price))}'
-                                    
+
                                         # add sell order sold.json (handled better in session.json now)
                                         id = f"{coin}_{id}"
                                         sold_coins[id] = sell
                                         sold_coins[id] = sell.__dict__
                                         sold_coins[id].pop("local_vars_configuration")
+                                        sold_coins[coin]['profit'] = pnl
+                                        sold_coins[coin]['relative_profit_%'] = pnl_perc
+                                        
                                         logger.info(f"Sell order did not close! {sell._left} of {coin} remaining. Adjusted order _amount and _fee to perform sell of remaining balance")
 
                                         # add to session orders
@@ -209,15 +218,15 @@ def main():
                                             if len(session) > 0:
                                                 dp = copy.deepcopy(sold_coins[id])
                                                 session[coin]['orders'].append(dp)
+                                                session[coin]['total_pnl'] = session[coin]['total_pnl'] + pnl
+                                                session[coin]['total_pnl_percentage'] = session[coin]['total_pnl_percentage'] + pnl_perc
                                         except Exception as e:
                                             print(e)
                                         pass
                                     
                                     # keep going.  Not finished until status is 'closed'
                                     continue
-                                
-                            logger.info(f'sold {coin} with {round((float(last_price) - stored_price) * float(volume), 3)} profit | {round((float(last_price) - stored_price) / float(stored_price)*100, 3)}% PNL')
-
+                                    
                             # remove order from json file
                             order.pop(coin)
                             store_order('order.json', order)
@@ -262,6 +271,9 @@ def main():
                                 if len(session) > 0:
                                     dp = copy.deepcopy(sold_coins[coin])
                                     session[coin]['orders'].append(dp)
+                                    session[coin]['total_pnl'] = session[coin]['total_pnl'] + pnl
+                                    session[coin]['total_pnl_percentage'] = session[coin]['total_pnl_percentage'] + pnl_perc
+
                                     store_order('session.json', session)
                                     logger.debug('Session saved in session.json')
                             except Exception as e:
@@ -270,6 +282,14 @@ def main():
 
                             store_order('sold.json', sold_coins)
                             logger.info('Order saved in sold.json')
+
+                            total_pnl = session[coin]['total_pnl']
+                            total_pnl_percentage = session[coin]['total_pnl_percentage']
+                            message = f'Sold {coin} with {round(total_pnl, 3)} profit | {round(total_pnl_percentage, 3)}% PNL'
+
+                            logger.info(message)
+                            if enable_sms:
+                                send_sms_message(message)
                             
                                 
 
@@ -315,6 +335,8 @@ def main():
                             session[announcement_coin].update({'total_volume': 0})
                             session[announcement_coin].update({'total_amount': 0})
                             session[announcement_coin].update({'total_fees': 0})
+                            session[announcement_coin].update({'total_pnl':  0})
+                            session[announcement_coin].update({'total_pnl_percentage':  0})
                             session[announcement_coin]['orders'] = list()
                         
                         # initalize order object
@@ -412,9 +434,7 @@ def main():
                         else:
                             order_status = order[announcement_coin]['_status']
 
-                            message = f'Order created on {announcement_coin} at a price of {price} each.  {order_status=}'
-                            logger.info(message)
-                            
+                            logger.info(f'Order created on {announcement_coin} at a price of {price} each.  {order_status=}')
 
                             if order_status == "closed":
                                 order[announcement_coin]['_amount_filled'] = order[announcement_coin]['_amount']
@@ -432,6 +452,11 @@ def main():
 
                                 store_order('order.json', order)
                                 store_order('session.json', session)
+
+                                if enable_sms:
+                                    total_filled_volume = session[announcement_coin]['total_volume']
+                                    message = f"Purchased {round(total_filled_volume)} {pairing} of {announcement_coin} at a price of {price}."
+                                    send_sms_message(message)
                             else:
                                 if order_status == "cancelled" and float(order[announcement_coin]['_amount']) > float(order[announcement_coin]['_left']) and float(order[announcement_coin]['_left']) > 0:
                                     # partial order. Change qty and fee_total in order and finish any remaining balance
