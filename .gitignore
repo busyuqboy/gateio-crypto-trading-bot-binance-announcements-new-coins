@@ -8,6 +8,7 @@ sold.json
 new_listing.json
 session.json
 kucoin_announcements.json
+binance_announcements.json
 upcoming_listings.json
 
 # Ignore bot log

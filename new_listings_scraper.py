@@ -9,6 +9,7 @@ import json
 import pytz
 from gate_api import ApiClient, SpotApi
 from datetime import datetime
+from dateutil import tz
 from dateutil.parser import parse
 from auth.gateio_auth import *
 from logger import logger
@@ -22,6 +23,23 @@ spot_api = SpotApi(ApiClient(client))
 global gateio_supported_currencies
 
 previously_found_coins = set()
+
+def to_EST(dt):
+    if isinstance(dt, datetime):
+        from_zone = tz.tzutc()
+        to_zone = tz.gettz('America/New_York')
+
+        # Tell the datetime object that it's in UTC time zone since 
+        # datetime objects are 'naive' by default
+        local = dt.replace(tzinfo=from_zone)
+
+        # Convert time zone
+        eastern = local.astimezone(to_zone)
+
+        return eastern
+    else:
+        return dt
+
 
 
 def get_kucoin_announcement():
@@ -44,12 +62,14 @@ def get_kucoin_announcement():
             uppers = found_coin[0]
             previously_found_coins.add(uppers)
             logger.debug(f'New coin detected: {uppers} at {announcement_launch}')
+            dt = datetime.now()
             value = {
                 "symbol": uppers,
                 "atUtc": d.timestamp(),
                 "atLocal": d.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
-                "foundUtc": datetime.now().timestamp(),
-                "foundLocal": datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
+                "foundUtc": dt.timestamp(),
+                "foundLocal": dt.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
+                "foundEst": to_EST(dt).strftime("%Y-%m-%dT%H:%M:%S %z")
             }
             
             return value
@@ -161,7 +181,29 @@ def store_kucoin_announcement(announcement):
         a.append(announcement)
         store_order('kucoin_announcements.json', a)
         logger.info("File does not exist, creating file kucoin_announcements.json")
-    
+
+
+def store_binance_announcement(announcement):
+    """
+    Save order into local json file
+    """
+
+    if os.path.isfile('binance_announcements.json'):
+        file = load_order('binance_announcements.json')
+        if len([l for l in file if l['symbol'] == announcement['symbol']]) > 0:
+            return False
+        else:
+            file.append(announcement)
+
+            with open('binance_announcements.json', 'w') as f:
+                json.dump(file, f, indent=4)
+           
+            logger.info("Added Binance announcement to binance_announcements.json file")
+    else:
+        a = []
+        a.append(announcement)
+        store_order('binance_announcements.json', a)
+        logger.info("File does not exist, creating file binance_announcements.json")
 
 
 def store_new_listing(listing):
@@ -202,7 +244,8 @@ def search_binance_and_update(pairing):
         try:
             latest_coins = get_binance_announcement(pairing)
             if latest_coins and len(latest_coins) > 0:
-                
+                t = datetime.utcnow()
+
                 # add to found list
                 for lc in latest_coins:
                     previously_found_coins.add(lc)
@@ -215,6 +258,15 @@ def search_binance_and_update(pairing):
                 store_new_listing(single_coin)
 
                 logger.info(f'[Binance] Found new coin(s) {", ".join(latest_coins)}!! Adding to new listings.')
+
+                # log to file all announcements from binance
+                l = { 
+                    'symbol': ", ".join(latest_coins),
+                    'foundUtc': t.timestamp(),
+                    'foundLocal': t.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
+                    'foundEst': to_EST(t).astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
+                }
+                store_binance_announcement(l)
             
             count = count + sleep_time
             if count % 300 == 0:
