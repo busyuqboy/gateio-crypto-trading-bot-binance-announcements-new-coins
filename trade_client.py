@@ -17,14 +17,20 @@ def get_last_price(base,quote, return_price_only):
     Args:
     'DOT', 'USDT'
     """
-    tickers = spot_api.list_tickers(currency_pair=f'{base}_{quote}')
-    assert len(tickers) == 1
-    t = tickers[0]
-    if return_price_only:
-        return t.last
+    try:
+        tickers = spot_api.list_tickers(currency_pair=f'{base}_{quote}')
+    except GateApiException as ge:
+        if ge.label == "INVALID_CURRENCY_PAIR":
+            return 0
+        logger.error(ge)
+    else: 
+        assert len(tickers) == 1
+        t = tickers[0]
+        if return_price_only:
+            return t.last
     
-    logger.info(f"GET PRICE: {t.currency_pair} | last={t.last} | change%={t.change_percentage} | lowest_ask={t.lowest_ask} | highest_bid={t.highest_bid} | base_volue={t.base_volume} | quote_volume={t.quote_volume}")
-    return t
+        logger.info(f"GET PRICE: {t.currency_pair} | last={t.last} | change%={t.change_percentage} | lowest_ask={t.lowest_ask} | highest_bid={t.highest_bid} | base_volue={t.base_volume} | quote_volume={t.quote_volume}")
+        return t
  
     
 def is_currency_trade_ready(base, quote):
