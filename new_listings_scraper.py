@@ -51,11 +51,13 @@ def get_kucoin_announcement():
     announcement_launch = announcements['items'][0]['summary'].replace("Trading: ", "")
     
     try:
-        found_date_text = announcement_launch[9:-6]
+        found_date_text = announcement_launch[8:-6]
         found_date_time = announcement_launch[0:5]
         d = parse(f'{found_date_text}, {found_date_time} UTC')
     except ValueError:
-        return False
+        d = datetime(1, 1, 1, 0, 0) #min value
+        from_zone = tz.gettz('UTC')
+        d.replace(tzinfo=from_zone)
 
     found_coin = re.findall('\(([^)]+)', announcement)
     if len(found_coin) == 1 and found_coin[0] not in previously_found_coins and "gets listed on kucoin" in announcement.lower():
