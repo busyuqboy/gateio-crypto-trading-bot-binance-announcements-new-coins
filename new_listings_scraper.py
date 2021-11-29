@@ -49,6 +49,7 @@ def get_kucoin_announcement():
     announcements = latest_announcement.json()
     announcement = announcements['items'][0]['title']
     announcement_launch = announcements['items'][0]['summary'].replace("Trading: ", "")
+    first_published_at = announcements['items'][0]['first_publish_at']
     
     try:
         found_date_text = announcement_launch[8:-6]
@@ -71,7 +72,8 @@ def get_kucoin_announcement():
                 "atLocal": d.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
                 "foundUtc": dt.timestamp(),
                 "foundLocal": dt.astimezone().strftime("%Y-%m-%dT%H:%M:%S %z"),
-                "foundEst": to_EST(dt).strftime("%Y-%m-%dT%H:%M:%S %z")
+                "foundEst": to_EST(dt).strftime("%Y-%m-%dT%H:%M:%S %z"),
+                "diff": dt.timestamp() - float(first_published_at)
             }
             
             return value
