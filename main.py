@@ -413,7 +413,7 @@ def main():
                                 
                                 try:
                                     order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
-                                except GateApiException as ge:
+                                except (GateApiException, ApiException) as ge:
                                     logger.error(ge)
                                     order.pop(announcement_coin)  # reset for next iteration
                                     continue
