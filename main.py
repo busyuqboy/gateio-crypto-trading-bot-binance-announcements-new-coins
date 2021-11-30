@@ -429,6 +429,7 @@ def main():
 
                         except Exception as e:
                             logger.error(e)
+                            order.pop(announcement_coin)  # reset for next iteration
 
 
                         else:
