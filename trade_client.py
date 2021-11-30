@@ -19,8 +19,8 @@ def get_last_price(base,quote, return_price_only):
     """
     try:
         tickers = spot_api.list_tickers(currency_pair=f'{base}_{quote}')
-    except GateApiException as ge:
-        if ge.label == "INVALID_CURRENCY_PAIR":
+    except (GateApiException, ApiException, Exception) as ge:
+        if ge and ge.label == "INVALID_CURRENCY_PAIR":
             return 0
         logger.error(ge)
     else: 
