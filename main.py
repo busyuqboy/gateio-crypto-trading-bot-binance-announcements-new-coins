@@ -81,7 +81,7 @@ def main():
     pairing = config['TRADE_OPTIONS']['PAIRING']
     test_mode = config['TRADE_OPTIONS']['TEST']
     enable_sms = config['TRADE_OPTIONS']['ENABLE_SMS']
-
+    sys_name = config['TRADE_OPTIONS']['SYS_NAME']
 
     globals.stop_threads = False
 
