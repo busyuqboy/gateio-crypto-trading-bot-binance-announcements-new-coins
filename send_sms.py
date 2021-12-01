@@ -15,13 +15,13 @@ from_number = keys['twilio_from_number']
 
 client = Client(account_sid, auth_token)
 
-def send_sms_message(body):
+def send_sms_message(body, sys_name):
     try:
 
         message = client.messages.create(
             to=to_number, 
             from_=from_number,
-            body=body)
+            body = f"[{sys_name}] {body}")
 
         logger.info(f'SMS sent: {message.sid=}')
 
