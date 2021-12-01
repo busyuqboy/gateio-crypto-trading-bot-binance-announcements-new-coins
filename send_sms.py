@@ -3,6 +3,7 @@ from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 from logger import logger
 from auth.twilio_auth import *
+import globals
 
 import yaml
 
@@ -15,13 +16,13 @@ from_number = keys['twilio_from_number']
 
 client = Client(account_sid, auth_token)
 
-def send_sms_message(body, sys_name):
+def send_sms_message(body):
     try:
 
         message = client.messages.create(
             to=to_number, 
             from_=from_number,
-            body = f"[{sys_name}] {body}")
+            body = f"[{globals.sys_name}] {body}")
 
         logger.info(f'SMS sent: {message.sid=}')
 

@@ -84,6 +84,7 @@ def main():
     sys_name = config['TRADE_OPTIONS']['SYS_NAME']
 
     globals.stop_threads = False
+    globals.sys_name = sys_name
 
     if not test_mode:
         logger.info(f'!!! LIVE MODE !!!')
@@ -289,7 +290,7 @@ def main():
 
                             logger.info(message)
                             if enable_sms:
-                                send_sms_message(message, sys_name)
+                                send_sms_message(message)
                             
                                 
 
@@ -457,7 +458,7 @@ def main():
                                 if enable_sms:
                                     total_filled_volume = session[announcement_coin]['total_volume']
                                     message = f"Purchased {round(total_filled_volume)} {pairing} of {announcement_coin} at a price of {price}."
-                                    send_sms_message(message, sys_name)
+                                    send_sms_message(message)
                             else:
                                 if order_status == "cancelled" and float(order[announcement_coin]['_amount']) > float(order[announcement_coin]['_left']) and float(order[announcement_coin]['_left']) > 0:
                                     # partial order. Change qty and fee_total in order and finish any remaining balance
