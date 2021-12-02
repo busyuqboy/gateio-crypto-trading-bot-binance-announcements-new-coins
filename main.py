@@ -141,6 +141,8 @@ def main():
                     
                     logger.debug(f"get_last_price existing coin: {coin}")
                     obj = get_last_price(symbol, pairing, False)
+                    if obj == False:
+                        continue
                     last_price = obj.last
                     logger.debug("Finished get_last_price")
 

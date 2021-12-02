@@ -25,7 +25,7 @@ def get_last_price(base,quote, return_price_only):
         logger.error(ge)
     except (ApiException, Exception) as ae:
         logger.error(ae)
-        return 0
+        return False
     else: 
         assert len(tickers) == 1
         t = tickers[0]
