@@ -369,14 +369,19 @@ def get_all_gateio_currencies(single=False):
     global gateio_supported_currencies
     while not globals.stop_threads:
         logger.info("Getting the list of supported currencies from gate io")
-        response = spot_api.list_currencies()
-        all_currencies = ast.literal_eval(str(response))
-        currency_list = [currency['currency'] for currency in all_currencies]
-        with open('currencies.json', 'w') as f:
-            json.dump(currency_list, f, indent=4)
-            logger.info("List of gate io currencies saved to currencies.json. Waiting 5 "
-                  "minutes before refreshing list...")
-        gateio_supported_currencies = currency_list
+        try:
+            response = spot_api.list_currencies()
+        except Exception as ge:
+            logger.error(ge)
+        else:   
+            all_currencies = ast.literal_eval(str(response))
+            currency_list = [currency['currency'] for currency in all_currencies]
+            with open('currencies.json', 'w') as f:
+                json.dump(currency_list, f, indent=4)
+                logger.info("List of gate io currencies saved to currencies.json. Waiting 5 "
+                    "minutes before refreshing list...")
+            gateio_supported_currencies = currency_list
+        
         if single:
             return gateio_supported_currencies
         else:
