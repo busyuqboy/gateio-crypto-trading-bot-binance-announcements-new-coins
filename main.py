@@ -16,7 +16,7 @@ import os.path
 import sys, os
 
 
-old_coins = ["JASMY", "LIT"]
+old_coins = ["MATIC", "TRVL"]
 
 # loads local configuration
 config = load_config('config.yml')

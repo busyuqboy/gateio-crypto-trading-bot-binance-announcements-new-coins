@@ -1,9 +1,12 @@
 from logger import logger
-
+import pandas as pd
 from auth.gateio_auth import *
+import gate_api
 from gate_api import ApiClient, Configuration, Order, SpotApi
 from gate_api.exceptions import ApiException, GateApiException
-
+import dateutil.parser as dparser
+from datetime import datetime
+from dateutil import tz
 from store_order import store_order
 
 client = load_gateio_creds('auth/auth.yml')
@@ -70,3 +73,22 @@ def place_order(base,quote, amount, side, last_price):
 
     else:
         return order
+
+def get_listing_start(base, quote):
+    d = False
+    
+    try:
+        if is_currency_trade_ready(base, quote) is False:
+            # place an order that will fail by design to buy because the coin is marked as sellable only.
+            order = Order(amount=str(float(1)/float(0.1)), price=0.1, side='buy', currency_pair=f'{base}_{quote}', time_in_force='ioc')
+            order = spot_api.create_order(order)
+    except GateApiException as ge:
+        if ge and ge.label == "INVALID_CURRENCY":
+            # need to strip out the listing time listed in the error message and return as the datetime object
+            d = dparser.parse(ge.message, fuzzy="True")
+            from_zone = tz.gettz('Asia/Shanghai')
+            d.replace(tzinfo=from_zone)
+            return d
+   
+    return d
+

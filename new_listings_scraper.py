@@ -135,16 +135,20 @@ def get_coins_by_accouncement_text(latest_announcement, pairing):
 
 def get_upcoming_gateio_listings(pairing, new_listings):
     logger.debug("Pulling announcement page for [adds + trading pairs] or [will list] scenarios")
-
+    seconds_offset = 10
     if len(new_listings) == 0:
         return False
     else:
         symbol = new_listings[0]
     
-    found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)    
+    start_time_utc = get_listing_start(symbol, pairing)
+    if start_time_utc and (start_time_utc.timestamp() - datetime.now().timestamp()) <= seconds_offset: # within seconds of listing
+        found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)
+        price = get_last_price(symbol, pairing, True)
+        logger.info(f"[Gateio listing] {seconds_offset} seconds to go!! Lowest ask: {price}.  Starting ")
     
-    if found_coins and len(found_coins) > 0:
-        return found_coins
+        if found_coins and len(found_coins) > 0:
+            return found_coins
     
     return False
 
