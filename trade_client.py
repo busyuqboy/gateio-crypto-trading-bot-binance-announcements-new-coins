@@ -33,7 +33,7 @@ def get_last_price(base,quote, return_price_only):
         assert len(tickers) == 1
         t = tickers[0]
         if return_price_only:
-            return t.last
+            return t.lowest_ask
     
         logger.info(f"GET PRICE: {t.currency_pair} | last={t.last} | change%={t.change_percentage} | lowest_ask={t.lowest_ask} | highest_bid={t.highest_bid} | base_volue={t.base_volume} | quote_volume={t.quote_volume}")
         return t

@@ -325,11 +325,15 @@ def main():
                     if announcement_coin in gateio_supported_currencies:
                         
                         # get latest price object
-                        price = get_last_price(announcement_coin, pairing, True)
+                        lp = get_last_price(announcement_coin, pairing, False)
 
-                        if float(price) == 0:
+                        if float(lp.price) == 0:
                             continue # wait for positive price
-
+                        
+                        buffer = 0.005
+                        price = lp.last
+                        if float(lp.lowest_ask) > 0:
+                            price = float(lp.lowest_ask) + (float(lp.lowest_ask) * buffer)
 
                         volume = config['TRADE_OPTIONS']['QUANTITY']
                         
