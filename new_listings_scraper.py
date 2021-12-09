@@ -142,13 +142,15 @@ def get_upcoming_gateio_listings(pairing, new_listings):
         symbol = new_listings[0]
     
     start_time_utc = get_listing_start(symbol, pairing)
-    if start_time_utc and (start_time_utc.timestamp() - datetime.now().timestamp()) <= seconds_offset: # within seconds of listing
-        found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)
-        price = get_last_price(symbol, pairing, True)
-        logger.info(f"[Gateio listing] {seconds_offset} seconds to go!! Lowest ask: {price}.  Starting ")
-    
-        if found_coins and len(found_coins) > 0:
-            return found_coins
+    if(start_time_utc):
+        diff = datetime.fromtimestamp(start_time_utc.timestamp()) - datetime.fromtimestamp(datetime.now().timestamp())
+        if diff.total_seconds() <= seconds_offset: # within seconds of listing
+            found_coins = get_coins_by_accouncement_text(f"Will list ({symbol})", pairing)
+            price = get_last_price(symbol, pairing, True)
+            logger.info(f"[Gateio listing] {seconds_offset} seconds to go!! Lowest ask: {price}.  Starting buy phase.")
+        
+            if found_coins and len(found_coins) > 0:
+                return found_coins
     
     return False
 
@@ -297,7 +299,7 @@ def search_gateio_and_update(pairing, new_listings):
         latest_coins = get_upcoming_gateio_listings(pairing, new_listings)
         if latest_coins:
             try:
-                ready = is_currency_trade_ready(latest_coins[0], pairing)
+                ready = is_currency_trade_ready(latest_coins[0], pairing) or True
                 #price = get_last_price(latest_coins[0], pairing, True)
                 if ready:
                         logger.info(f"[Gate.io] Found new coin {latest_coins[0]}!! Adding to new listings.")
