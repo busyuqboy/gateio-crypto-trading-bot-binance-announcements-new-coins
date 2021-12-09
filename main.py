@@ -324,13 +324,11 @@ def main():
                 if gateio_supported_currencies is not False:
                     if announcement_coin in gateio_supported_currencies:
                         
-                        # get latest price object
+                        # get latest price object.  We do this to get the lowest_ask price.
+                        # The lowest asking price will be used to try to close a buy order faster
                         lp = get_last_price(announcement_coin, pairing, False)
 
-                        if float(lp.price) == 0:
-                            continue # wait for positive price
-                        
-                        buffer = 0.005
+                        buffer = 0.005 # add room for volatility (percentage rate)
                         price = lp.last
                         if float(lp.lowest_ask) > 0:
                             price = float(lp.lowest_ask) + (float(lp.lowest_ask) * buffer)
@@ -417,13 +415,22 @@ def main():
                             else:
                                 # just in case...stop buying more than our config amount
                                 assert amount * float(price) <= float(volume)
-                                
-                                try:
-                                    order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
-                                except (GateApiException, ApiException) as ge:
-                                    logger.error(ge)
-                                    order.pop(announcement_coin)  # reset for next iteration
-                                    continue
+
+                                # new strategy:  
+                                # Skip the step of getting the latest price and waiting for a positive price
+                                # Issue orders using lowest_ask.  This will fail for gateio listings. Just keep trying.
+                                try: 
+                                    # place an order that will fail by design until the coin becomes sellable
+                                    create_order = Order(amount=str(float(volume)/float(price)), price=price, side='buy', currency_pair=f'{announcement_coin}_{pairing}', time_in_force='ioc')
+                                    order[announcement_coin] = spot_api.create_order(create_order)
+                                except GateApiException as ge:
+                                    if ge and ge.label == "INVALID_CURRENCY":
+                                        order.pop(announcement_coin)  # reset for next iteration
+                                        continue # reset for next iteration
+                                    else:
+                                        logger.error(ge)
+                                        order.pop(announcement_coin)  # reset for next iteration
+                                        continue
 
                                 order[announcement_coin] = order[announcement_coin].__dict__
                                 order[announcement_coin].pop("local_vars_configuration")
