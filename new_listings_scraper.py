@@ -244,7 +244,7 @@ def search_binance_and_update(pairing):
     """
     Pretty much our main func for binance
     """
-    count = 297
+    count = 597
     while not globals.stop_threads:
         sleep_time = 3
         for x in range(sleep_time):
@@ -279,8 +279,8 @@ def search_binance_and_update(pairing):
                 store_binance_announcement(l)
             
             count = count + sleep_time
-            if count % 300 == 0:
-                logger.info("Five minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
+            if count % 600 == 0:
+                logger.info("Ten minutes have passed.  Checking for coin announcements on Binanace every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
             logger.info(e)
@@ -293,7 +293,7 @@ def search_gateio_and_update(pairing, new_listings):
     """
     Pretty much our main func for gateio listings
     """
-    count = 299
+    count = 599
     while not globals.stop_threads:
         
         latest_coins = get_upcoming_gateio_listings(pairing, new_listings)
@@ -320,11 +320,11 @@ def search_gateio_and_update(pairing, new_listings):
         
         
         count = count + 1
-        if count % 300 == 0:
+        if count % 600 == 0:
             nl = ""
             if len(new_listings) > 0:
                 nl = new_listings[0]
-            logger.info(f"Five minutes have passed.  Checking for coin listing {nl} on Gate.io every 1 seconds (in a separate thread)")
+            logger.info(f"Ten minutes have passed.  Checking for coin listing {nl} on Gate.io every 1 seconds (in a separate thread)")
             count = 0
        
         time.sleep(1)
@@ -336,7 +336,7 @@ def search_kucion_and_update():
     """
     Pretty much our main func for gateio listings
     """
-    count = 297
+    count = 597
     while not globals.stop_threads:
         sleep_time = 3
         for x in range(sleep_time):
@@ -359,8 +359,8 @@ def search_kucion_and_update():
                     
             
             count = count + sleep_time
-            if count % 300 == 0:
-                logger.info("Five minutes have passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
+            if count % 600 == 0:
+                logger.info("Ten minutes have passed.  Checking for coin announcements on Kucoin every 3 seconds (in a separate thread)")
                 count = 0
         except Exception as e:
             logger.info(e)
@@ -391,7 +391,7 @@ def get_all_gateio_currencies(single=False):
         if single:
             return gateio_supported_currencies
         else:
-            for x in range(300):
+            for x in range(600):
                 time.sleep(1)
                 if globals.stop_threads:
                     break

@@ -1,5 +1,4 @@
 from logger import logger
-import pandas as pd
 from auth.gateio_auth import *
 import gate_api
 from gate_api import ApiClient, Configuration, Order, SpotApi
