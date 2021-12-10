@@ -16,7 +16,7 @@ import os.path
 import sys, os
 
 
-old_coins = ["JASMY", "LIT"]
+old_coins = ["MATIC", "TRVL"]
 
 # loads local configuration
 config = load_config('config.yml')
@@ -143,17 +143,18 @@ def main():
                     obj = get_last_price(symbol, pairing, False)
                     if obj == False:
                         continue
+                    highest_bid = obj.highest_bid
                     last_price = obj.last
                     logger.debug("Finished get_last_price")
 
                     top_position_price = stored_price + (stored_price*coin_tp /100)
                     stop_loss_price = stored_price + (stored_price*coin_sl /100)
 
-                    # need positive price or continue and wait
+                    # need positive price or continue to next iteration
                     if float(last_price) == 0:
                         continue
 
-                    logger.info(f'{symbol=}-{last_price=}\t[STOP: ${"{:,.5f}".format(stop_loss_price)} or {"{:,.2f}".format(coin_sl)}%]\t[TOP: ${"{:,.5f}".format(top_position_price)} or {"{:,.2f}".format(coin_tp)}%]\t[BUY: ${"{:,.5f}".format(stored_price)} (+/-): {"{:,.2f}".format(((float(last_price) - stored_price) / stored_price) * 100)}%]')
+                    logger.info(f'{symbol=}-{last_price=}{highest_bid=}\t[STOP: ${"{:,.5f}".format(stop_loss_price)} or {"{:,.2f}".format(coin_sl)}%]\t[TOP: ${"{:,.5f}".format(top_position_price)} or {"{:,.2f}".format(coin_tp)}%]\t[BUY: ${"{:,.5f}".format(stored_price)} (+/-): {"{:,.2f}".format(((float(last_price) - stored_price) / stored_price) * 100)}%]')
 
                     # update stop loss and take profit values if threshold is reached
                     if float(last_price) > stored_price + (
@@ -189,11 +190,11 @@ def main():
                             pnl = (float(last_price) - stored_price)
                             pnl_perc = pnl / stored_price * 100
 
-                            logger.info(f'starting sell place_order with :{symbol} | {pairing} | {volume} | {sell_volume_adjusted} | {fees} | {float(sell_volume_adjusted)*float(last_price)} | side=sell | last={last_price}')
+                            logger.info(f'starting sell place_order with :{symbol} | {pairing} | {volume} | {sell_volume_adjusted} | {fees} | {float(sell_volume_adjusted)*float(last_price)} | side=sell | last={last_price} | {highest_bid=}')
 
                             # sell for real if test mode is set to false
                             if not test_mode:
-                                sell = place_order(symbol, pairing, float(sell_volume_adjusted)*float(last_price), 'sell', last_price)
+                                sell = place_order(symbol, pairing, float(sell_volume_adjusted)*float(highest_bid), 'sell', highest_bid)
                                 logger.info("Finish sell place_order")
 
 
@@ -244,6 +245,7 @@ def main():
                                 sold_coins[coin] = sell
                                 sold_coins[coin] = sell.__dict__
                                 sold_coins[coin].pop("local_vars_configuration")
+                                sold_coins[coin]['highest_bid'] = highest_bid
                                 sold_coins[coin]['profit'] = f'{float(last_price) - stored_price}'
                                 sold_coins[coin]['relative_profit_%'] = f'{(float(last_price) - stored_price) / stored_price * 100}%'
                             else:
@@ -324,12 +326,14 @@ def main():
                 if gateio_supported_currencies is not False:
                     if announcement_coin in gateio_supported_currencies:
                         
-                        # get latest price object
-                        price = get_last_price(announcement_coin, pairing, True)
+                        # get latest price object.  We do this to get the lowest_ask price.
+                        # The lowest asking price will be used to try to close a buy order faster
+                        lp = get_last_price(announcement_coin, pairing, False)
 
-                        if float(price) == 0:
-                            continue # wait for positive price
-
+                        buffer = 0.005 # add room for volatility (percentage rate)
+                        price = lp.last
+                        if float(lp.lowest_ask) > 0:
+                            price = float(lp.lowest_ask) + (float(lp.lowest_ask) * buffer)
 
                         volume = config['TRADE_OPTIONS']['QUANTITY']
                         
@@ -413,13 +417,22 @@ def main():
                             else:
                                 # just in case...stop buying more than our config amount
                                 assert amount * float(price) <= float(volume)
-                                
-                                try:
-                                    order[announcement_coin] = place_order(announcement_coin, pairing, volume,'buy', price)
-                                except (GateApiException, ApiException) as ge:
-                                    logger.error(ge)
-                                    order.pop(announcement_coin)  # reset for next iteration
-                                    continue
+
+                                # new strategy:  
+                                # Skip the step of getting the latest price and waiting for a positive price
+                                # Issue orders using lowest_ask.  This will fail for gateio listings. Just keep trying.
+                                try: 
+                                    # place an order that will fail by design until the coin becomes sellable
+                                    create_order = Order(amount=str(float(volume)/float(price)), price=price, side='buy', currency_pair=f'{announcement_coin}_{pairing}', time_in_force='ioc')
+                                    order[announcement_coin] = spot_api.create_order(create_order)
+                                except GateApiException as ge:
+                                    if ge and ge.label == "INVALID_CURRENCY":
+                                        order.pop(announcement_coin)  # reset for next iteration
+                                        continue # reset for next iteration
+                                    else:
+                                        logger.error(ge)
+                                        order.pop(announcement_coin)  # reset for next iteration
+                                        continue
 
                                 order[announcement_coin] = order[announcement_coin].__dict__
                                 order[announcement_coin].pop("local_vars_configuration")
