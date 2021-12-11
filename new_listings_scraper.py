@@ -17,7 +17,7 @@ from store_order import *
 from trade_client import *
 import globals
 
-client = load_gateio_creds('auth/auth_gatio.yml')
+client = load_gateio_creds('auth/auth_gateio.yml')
 spot_api = SpotApi(ApiClient(client))
 
 
