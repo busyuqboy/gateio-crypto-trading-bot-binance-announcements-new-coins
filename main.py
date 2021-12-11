@@ -4,6 +4,7 @@ from store_order import *
 from logger import logger
 from load_config import *
 from new_listings_scraper import *
+from arbitrage_search import *
 import globals
 from collections import defaultdict
 from datetime import datetime, time
@@ -91,17 +92,20 @@ def main():
         if enable_sms:
             logger.info(f"!!! SMS ENABLED !!!")
 
-    t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_gateio_listings])
-    t1.start()
+    #t1 = threading.Thread(target=search_gateio_and_update, args=[pairing, new_gateio_listings])
+    #t1.start()
 
-    t2 = threading.Thread(target=search_binance_and_update, args=[pairing])
-    t2.start()
+    #t2 = threading.Thread(target=search_binance_and_update, args=[pairing])
+    #t2.start()
 
     t3 = threading.Thread(target=get_all_gateio_currencies)
     t3.start()
 
-    t4 = threading.Thread(target=search_kucion_and_update)
-    t4.start()
+    #t4 = threading.Thread(target=search_kucion_and_update)
+    #t4.start()
+
+    t5 = threading.Thread(target=search_arbitrage_opportunities, args=[pairing, "ETH", 0.5])
+    t5.start()
 
     try:
         while True:
@@ -497,10 +501,11 @@ def main():
     except KeyboardInterrupt:
         logger.info('Stopping Threads')
         globals.stop_threads = True
-        t1.join()
-        t2.join()
+        #t1.join()
+        #t2.join()
         t3.join()
-        t4.join()
+        #t4.join()
+        t5.join()
 
 
 if __name__ == '__main__':

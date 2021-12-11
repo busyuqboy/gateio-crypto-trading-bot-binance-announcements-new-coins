@@ -17,8 +17,9 @@ from store_order import *
 from trade_client import *
 import globals
 
-client = load_gateio_creds('auth/auth.yml')
+client = load_gateio_creds('auth/auth_gatio.yml')
 spot_api = SpotApi(ApiClient(client))
+
 
 global gateio_supported_currencies
 
