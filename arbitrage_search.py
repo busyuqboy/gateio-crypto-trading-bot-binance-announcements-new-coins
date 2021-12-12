@@ -107,15 +107,15 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing):
                 diff = third_stage_volume - volume
 
                 if diff > 0:
-                    diff_r = diff / volume
-                    diff_p = diff_r / 100
+                    diff_r = 1 + (diff / volume)
+                    diff_p = diff / volume
                     
                     result.append({
                         "symbol": symbol,
                         "gateio_symbol": first_pair.currency_pair,
                         "gateio_price": first_pair.last,
                         "gateio_second_price": second_pair.last,
-                        "gateio_second_price": third_pair.last,
+                        "gateio_third_price": third_pair.last,
                         "diff": diff,
                         "diff_r": diff_r,
                         "diff_p": diff_p
@@ -133,15 +133,21 @@ def search_arbitrage_opportunities(pairing, second_paring, percentage_diff):
     Get a list of arbitrage position favorable to buy and then sell on gateio
     :return:
     """
+
+    ignore_coins = ["BCDN", "LUFFY", "ZSC", "BU"]
+
     while not globals.stop_threads:
 
         obj = get_gateio_triangular_arbitrage_opportunities(pairing, second_paring)
+        obj = [t for t in obj if t['symbol'] not in ignore_coins]
         if len(obj) != 0:
             prospects = sorted([t for t in obj if t['diff_p'] >= percentage_diff], key=lambda d: d['diff_p'], reverse=True)
             if len(prospects) > 0:
-                print('\n{:<8s} {:<10s} {:<10s}'.format("symbol", "diff_p(%)", "100_PNL($)"))
+                logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format("symbol", "diff_p(%)", "100_PNL($)","p1($)", "p2($)", "p3($)"))
                 for top in prospects:
-                    print('{:<8s} {:<10s} {:<10s}'.format(top['symbol'], "{:.4f}%".format(top['diff_p']), "{:.2f}".format(top['diff_p'] * 100)))
+                    logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format(f"{top['symbol']}->ETH->USDT", "{:.4f}%".format(top['diff_p']), "{:.2f}".format(top['diff_p'] * 100), "{:.8f}".format(float(top['gateio_price'])), "{:.8f}".format(float(top['gateio_second_price'])), "{:.8f}".format(float(top['gateio_third_price']))))
+                
+                print("\n")
             else:
                 logger.info("No arbitrage prospects found")
         for x in range(5):
@@ -150,13 +156,13 @@ def search_arbitrage_opportunities(pairing, second_paring, percentage_diff):
                 break
 
 
-search_arbitrage_opportunities("USDT", "ETH", 0.01)
+#search_arbitrage_opportunities("USDT", "ETH", 0.5)
 
 #obj = get_ticker_prices()
 #print('{:<8s} {:<10s} {:<10s} {:<10s} {:<10s} {:<10s}'.format("symbol", "diff_p", "bin_diff", "gate_diff", "bin_$", "gate_$"))
 #for top in [t for t in obj if t['diff_p'] >= 0.5]:
     #print('{:<8s} {:<10s} {:<10s} {:<10s} {:<10s} {:<10s}'.format(top['symbol'], "{:.2f}".format(top['diff_p']), "{:.2f}".format(top['binance_difference']), "{:.2f}".format(top['gateio_difference']), "{:.2f}".format(float(top['binance_price'])), "{:.2f}".format(float(top['gateio_price']))))
-print ("done")
+#print ("done")
 
 
 
