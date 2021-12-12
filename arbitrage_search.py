@@ -75,13 +75,19 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing_array)
             # get second_pairing back to USDT (final trade pair)
             third_pairs = [t for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair and pairing in t.currency_pair and t.currency_pair.replace(f"_{pairing}", "") == second_pairing]
 
-            if len(first_pairs) > 0 and len(second_pairs) > 0:
-                first_pair = first_pairs[0]
-                second_pair = second_pairs[0]
-                third_pair = third_pairs[0]
+            if len(third_pairs) == 0:
+                return result
+            
+            for symbol in all_symbols:
+                # get USDT pairing of symbol
+                first_pairs = [t for t in all_gateio_ticker_pairs if pairing in t.currency_pair and symbol in t.currency_pair and t.currency_pair.replace(f"_{pairing}", "") == symbol]
+                
+                # get second_pairing with symbol
+                second_pairs = [t for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair and symbol in t.currency_pair and t.currency_pair.replace(f"_{second_pairing}", "") == symbol]
 
-                if float(first_pair.last) == 0:
-                    continue #avoid divide by zero
+                # ignore "stuck" pairs. No volume found.
+                if (second_pairs[0].base_volume == '0' and second_pairs[0].quote_volume == '0') or second_pairs[0].highest_bid == '':
+                    continue
 
                 # ignore less than 100k USDT volume
                 if float(first_pairs[0].base_volume) < 100000:
@@ -172,28 +178,31 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing_array)
 
 
 
-def search_arbitrage_opportunities(pairing, second_paring, percentage_diff):
+def search_arbitrage_opportunities(pairing, second_paring_array, percentage_diff):
     """
     Get a list of arbitrage position favorable to buy and then sell on gateio
     :return:
     """
 
-    ignore_coins = ["BCDN", "LUFFY", "ZSC", "BU"]
+    ignore_coins = []
 
     while not globals.stop_threads:
 
-        obj = get_gateio_triangular_arbitrage_opportunities(pairing, second_paring)
+        obj = get_gateio_triangular_arbitrage_opportunities(pairing, second_paring_array)
         obj = [t for t in obj if t['symbol'] not in ignore_coins]
         if len(obj) != 0:
             prospects = sorted([t for t in obj if t['diff_p'] >= percentage_diff], key=lambda d: d['diff_p'], reverse=True)
             if len(prospects) > 0:
-                logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format("symbol", "diff_p(%)", "100_PNL($)","p1($)", "p2($)", "p3($)"))
+                logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format("symbol", "diff_p(%)", "100_PNL($)","price(1)", "price(2)", "price(3)"))
                 for top in prospects:
-                    logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format(f"{top['symbol']}->ETH->USDT", "{:.4f}%".format(top['diff_p']), "{:.2f}".format(top['diff_p'] * 100), "{:.8f}".format(float(top['gateio_price'])), "{:.8f}".format(float(top['gateio_second_price'])), "{:.8f}".format(float(top['gateio_third_price']))))
-                
+                    first_stage = top['first_stage']
+                    second_stage = top['second_stage']
+                    third_stage = top['third_stage']
+                    logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format(f"LP:{top['symbol']}->{second_stage['symbol']}->{pairing}", "{:.4f}%".format(top['diff_p']), "{:.2f}".format(top['diff_p'] + 100), "{:.8f}".format(float(first_stage['last'])), "{:.8f}".format(float(second_stage['last'])), "{:.8f}".format(float(third_stage['last']))))
+                    logger.info('{:<20s} {:<14s} {:<14s} {:<14s} {:<14s} {:<14s}'.format(f"LA:{top['symbol']}->{second_stage['symbol']}->{pairing}", "{:.4f}%".format(top['diff_lowest_ask_p']), "{:.2f}".format(top['diff_lowest_ask_p'] + 100), "{:.8f}".format(float(first_stage['lowest_ask'])), "{:.8f}".format(float(second_stage['lowest_ask'])), "{:.8f}".format(float(third_stage['lowest_ask']))))
                 print("\n")
             else:
-                logger.info("No arbitrage prospects found")
+                logger.info(f"No arbitrage prospects found at {percentage_diff}% or at least a trading volume of 100k USDT")
         for x in range(5):
             time.sleep(1)
             if globals.stop_threads:
