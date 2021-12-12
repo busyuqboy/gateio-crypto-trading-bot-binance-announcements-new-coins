@@ -6,7 +6,7 @@ from gate_api.exceptions import ApiException, GateApiException
 
 from store_order import store_order
 
-client = load_gateio_creds('auth/auth.yml')
+client = load_gateio_creds('auth/auth_gateio.yml')
 spot_api = SpotApi(ApiClient(client))
 import json
 
