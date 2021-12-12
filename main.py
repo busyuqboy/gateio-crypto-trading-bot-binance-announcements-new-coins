@@ -104,7 +104,7 @@ def main():
     #t4 = threading.Thread(target=search_kucion_and_update)
     #t4.start()
 
-    t5 = threading.Thread(target=search_arbitrage_opportunities, args=[pairing, "ETH", 0.5])
+    t5 = threading.Thread(target=search_arbitrage_opportunities, args=[pairing, ["ETH", "BTC", "LTC"], 0.5])
     t5.start()
 
     try:

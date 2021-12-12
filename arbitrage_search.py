@@ -56,7 +56,7 @@ def get_ticker_prices(pairing, second_pairing):
         print(ex)
 
 
-def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing):
+def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing_array):
     """
     Triangular arbitrage.  One exchange.
 
@@ -66,8 +66,9 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing):
     try:
         all_gateio_ticker_pairs = spot_api.list_tickers()
 
-        all_gateio_tickers = [t.currency_pair.replace(f"_{pairing}", "") for t in all_gateio_ticker_pairs if pairing in t.currency_pair]
-        all_gateio_second_pairs = [t.currency_pair.replace(f"_{second_pairing}", "") for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair]
+        for second_pairing in second_pairing_array:
+            all_gateio_tickers = [t.currency_pair.replace(f"_{pairing}", "") for t in all_gateio_ticker_pairs if pairing in t.currency_pair]
+            all_gateio_second_pairs = [t.currency_pair.replace(f"_{second_pairing}", "") for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair]
 
         all_symbols = [value for value in all_gateio_tickers if value in all_gateio_second_pairs]
         
@@ -156,13 +157,13 @@ def search_arbitrage_opportunities(pairing, second_paring, percentage_diff):
                 break
 
 
-#search_arbitrage_opportunities("USDT", "ETH", 0.5)
+search_arbitrage_opportunities("USDT", ["ETH", "BTC", "LTC"], 15)
 
 #obj = get_ticker_prices()
 #print('{:<8s} {:<10s} {:<10s} {:<10s} {:<10s} {:<10s}'.format("symbol", "diff_p", "bin_diff", "gate_diff", "bin_$", "gate_$"))
 #for top in [t for t in obj if t['diff_p'] >= 0.5]:
     #print('{:<8s} {:<10s} {:<10s} {:<10s} {:<10s} {:<10s}'.format(top['symbol'], "{:.2f}".format(top['diff_p']), "{:.2f}".format(top['binance_difference']), "{:.2f}".format(top['gateio_difference']), "{:.2f}".format(float(top['binance_price'])), "{:.2f}".format(float(top['gateio_price']))))
-#print ("done")
+print ("done")
 
 
 
