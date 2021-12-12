@@ -70,20 +70,10 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing_array)
             all_gateio_tickers = [t.currency_pair.replace(f"_{pairing}", "") for t in all_gateio_ticker_pairs if pairing in t.currency_pair]
             all_gateio_second_pairs = [t.currency_pair.replace(f"_{second_pairing}", "") for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair]
 
-        all_symbols = [value for value in all_gateio_tickers if value in all_gateio_second_pairs]
-        
-        # get second_pairing back to USDT (final trade pair)
-        third_pairs = [t for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair and pairing in t.currency_pair and t.currency_pair.replace(f"_{pairing}", "") == second_pairing]
-
-        if len(third_pairs) == 0:
-            return result
-        
-        for symbol in all_symbols:
-            # get USDT pairing of symbol
-            first_pairs = [t for t in all_gateio_ticker_pairs if pairing in t.currency_pair and symbol in t.currency_pair and t.currency_pair.replace(f"_{pairing}", "") == symbol]
+            all_symbols = [value for value in all_gateio_tickers if value in all_gateio_second_pairs]
             
-            # get second_pairing with symbol
-            second_pairs = [t for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair and symbol in t.currency_pair and t.currency_pair.replace(f"_{second_pairing}", "") == symbol]
+            # get second_pairing back to USDT (final trade pair)
+            third_pairs = [t for t in all_gateio_ticker_pairs if second_pairing in t.currency_pair and pairing in t.currency_pair and t.currency_pair.replace(f"_{pairing}", "") == second_pairing]
 
             if len(first_pairs) > 0 and len(second_pairs) > 0:
                 first_pair = first_pairs[0]
@@ -93,34 +83,87 @@ def get_gateio_triangular_arbitrage_opportunities(pairing, second_pairing_array)
                 if float(first_pair.last) == 0:
                     continue #avoid divide by zero
 
-                #USDT
-                volume = 100
+                # ignore less than 100k USDT volume
+                if float(first_pairs[0].base_volume) < 100000:
+                    continue
 
-                # Symbol volume
-                first_stage_volume = volume / float(first_pair.last)
-                
-                # second_pairing volume
-                second_stage_volume = first_stage_volume * float(second_pair.last)
+                if len(first_pairs) > 0 and len(second_pairs) > 0:
+                    first_pair = first_pairs[0]
+                    second_pair = second_pairs[0]
+                    third_pair = third_pairs[0]
 
-                #Back to USDT volume
-                third_stage_volume = second_stage_volume * float(third_pair.last)
+                    if float(first_pair.last) == 0:
+                        continue #avoid divide by zero
 
-                diff = third_stage_volume - volume
+                    #USDT
+                    volume = 100
 
-                if diff > 0:
-                    diff_r = 1 + (diff / volume)
-                    diff_p = diff / volume
+                    # Symbol volume
+                    first_stage_volume = volume / float(first_pair.last)
                     
-                    result.append({
-                        "symbol": symbol,
-                        "gateio_symbol": first_pair.currency_pair,
-                        "gateio_price": first_pair.last,
-                        "gateio_second_price": second_pair.last,
-                        "gateio_third_price": third_pair.last,
-                        "diff": diff,
-                        "diff_r": diff_r,
-                        "diff_p": diff_p
-                    })
+                    # second_pairing volume
+                    second_stage_volume = first_stage_volume * float(second_pair.last)
+
+                    #Back to USDT volume
+                    third_stage_volume = second_stage_volume * float(third_pair.last)
+
+                    diff = third_stage_volume - volume
+
+                    if diff > 0:
+                        diff_r = 1 + (diff / volume)
+                        diff_p = diff / volume * 100
+
+                        diff_lowest_ask = (volume / float(first_pair.lowest_ask) * float(second_pair.lowest_ask) * float(third_pair.lowest_ask)) - volume
+                        diff_lowest_ask_p = diff_lowest_ask / volume * 100
+                        
+                        first_stage = {
+                            "symbol": symbol,
+                            "currency_pair": first_pair.currency_pair,
+                            "last": first_pair.last,
+                            "lowest_ask": first_pair.lowest_ask,
+                            "higest_bid": first_pair.highest_bid,
+                            "volume": first_stage_volume,
+                            "volume_lowest_ask": volume / float(first_pair.lowest_ask),
+                            "base_volume": float(first_pair.base_volume),
+                            "quote_volume": float(first_pair.quote_volume)
+                        }
+
+                        second_stage = {
+                            "symbol": second_pair.currency_pair.replace(f"{symbol}_", ""),
+                            "currency_pair": second_pair.currency_pair,
+                            "last": second_pair.last,
+                            "lowest_ask": second_pair.lowest_ask,
+                            "higest_bid": second_pair.highest_bid,
+                            "volume": second_stage_volume,
+                            "volume_lowest_ask": volume / float(first_pair.lowest_ask) * float(second_pair.lowest_ask),
+                            "base_volume":float(second_pair.base_volume),
+                            "quote_volume": float(second_pair.quote_volume)
+                        }
+                        
+                        third_stage = {
+                            "symbol": pairing,
+                            "currency_pair": third_pair.currency_pair,
+                            "last": third_pair.last,
+                            "lowest_ask": third_pair.lowest_ask,
+                            "higest_bid": third_pair.highest_bid,
+                            "volume": third_stage_volume,
+                            "volume_lowest_ask": volume / float(first_pair.lowest_ask) * float(second_pair.lowest_ask) * float(third_pair.lowest_ask),
+                            "base_volume": float(third_pair.base_volume),
+                            "quote_volume_$": float(third_pair.quote_volume)
+                        }
+
+
+                        result.append({
+                            "symbol": symbol,
+                            "diff": diff,
+                            "diff_r": diff_r,
+                            "diff_p": diff_p,
+                            "first_stage": first_stage,
+                            "second_stage": second_stage,
+                            "third_stage": third_stage,
+                            "diff_lowest_ask": diff_lowest_ask,
+                            "diff_lowest_ask_p": diff_lowest_ask_p
+                        })
 
         return result
     except Exception as ex:
